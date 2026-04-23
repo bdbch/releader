@@ -26,7 +26,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
-import { Button } from "@/components/ui/Button";
 import { SidebarDropZone } from "./SidebarDropZone";
 import { SidebarDragPreview } from "./SidebarDragPreview";
 import { SidebarFeedItem } from "./SidebarFeedItem";
@@ -45,6 +44,7 @@ export function Sidebar() {
   const loadSidebarData = useSidebarStore((state) => state.loadSidebarData);
   const toggleFolder = useSidebarStore((state) => state.toggleFolder);
   const toggleFolderTree = useSidebarStore((state) => state.toggleFolderTree);
+  const setFolderExpanded = useSidebarStore((state) => state.setFolderExpanded);
   const setSidebarStructure = useSidebarStore(
     (state) => state.setSidebarStructure,
   );
@@ -176,6 +176,54 @@ export function Sidebar() {
     setCreatingFeedId(feed.id);
   }
 
+  async function handleMoveFeedIntoNewFolder(feedId: string) {
+    const feed = feeds.find((item) => item.id === feedId);
+
+    if (!feed) {
+      return;
+    }
+
+    const folder = await createRootFolder();
+    const nextParentFolderId = feed.folderId;
+    const nextFolders = [
+      ...folders,
+      {
+        ...folder,
+        parentFolderId: nextParentFolderId,
+        sortOrder: folders.filter((item) => item.parentFolderId === nextParentFolderId).length,
+      },
+    ];
+    const sourceSiblingFeeds = feeds
+      .filter((item) => item.folderId === feed.folderId && item.id !== feed.id)
+      .sort((left, right) => left.sortOrder - right.sortOrder);
+    const sourceOrderById = new Map(
+      sourceSiblingFeeds.map((item, index) => [item.id, index]),
+    );
+    const nextFeeds = feeds.map((item) => {
+      if (item.id === feed.id) {
+        return {
+          ...item,
+          folderId: folder.id,
+          sortOrder: 0,
+        };
+      }
+
+      if (item.folderId === feed.folderId && sourceOrderById.has(item.id)) {
+        return {
+          ...item,
+          sortOrder: sourceOrderById.get(item.id) ?? item.sortOrder,
+        };
+      }
+
+      return item;
+    });
+
+    setSidebarStructure(nextFolders, nextFeeds);
+    setFolderExpanded(folder.id, true);
+    setEditingFolderId(folder.id);
+    await persistSidebarStructure();
+  }
+
   async function handleCommitFolderRename(folderId: string, name: string) {
     try {
       await renameFolder(folderId, name);
@@ -258,17 +306,6 @@ export function Sidebar() {
     setCreatingFeedId(null);
     await removeFeed(feedId);
   }
-
-  const pendingDeleteFolder = pendingDeleteFolderId
-    ? folders.find((folder) => folder.id === pendingDeleteFolderId) ?? null
-    : null;
-  const pendingDeleteFolderIds = pendingDeleteFolderId
-    ? [pendingDeleteFolderId, ...getDescendantFolderIds(folders, pendingDeleteFolderId)]
-    : [];
-  const pendingDeleteFeedCount = feeds.filter(
-    (feed) => feed.folderId && pendingDeleteFolderIds.includes(feed.folderId),
-  ).length;
-  const pendingDeleteSubfolderCount = Math.max(0, pendingDeleteFolderIds.length - 1);
 
   return (
     <div className="flex flex-col gap-5">
@@ -354,6 +391,7 @@ export function Sidebar() {
               editingFolderId={editingFolderId}
               creatingFeedId={creatingFeedId}
               editingFeedId={editingFeedId}
+              pendingDeleteFolderId={pendingDeleteFolderId}
               onCommitFolderRename={handleCommitFolderRename}
               onCommitFeedRename={handleCommitFeedRename}
               onCancelFolderRename={() => setEditingFolderId(null)}
@@ -361,7 +399,10 @@ export function Sidebar() {
               onStartFolderRename={(folderId) => setEditingFolderId(folderId)}
               onStartFeedRename={(feedId) => setEditingFeedId(feedId)}
               onRequestDeleteFolder={(folderId) => setPendingDeleteFolderId(folderId)}
+              onCancelDeleteFolder={() => setPendingDeleteFolderId(null)}
+              onConfirmDeleteFolder={handleDeleteFolder}
               onDeleteFeed={handleDeleteFeed}
+              onMoveFeedIntoNewFolder={handleMoveFeedIntoNewFolder}
               onSubmitFeedUrl={handleSubmitFeedUrl}
               onCancelCreateFeed={handleCancelCreateFeed}
             />
@@ -377,37 +418,6 @@ export function Sidebar() {
           </DragOverlay>
         </DndContext>
       </div>
-
-      {pendingDeleteFolder ? (
-        <div className="mx-2 rounded-[12px] border border-border-subtle bg-surface-subtle p-2.5">
-          <div className="text-[12px] font-medium text-content">
-            Delete "{pendingDeleteFolder.name}"?
-          </div>
-          <div className="mt-1 text-[12px] leading-5 text-content-muted">
-            {pendingDeleteSubfolderCount > 0 || pendingDeleteFeedCount > 0
-              ? `This will permanently delete ${pendingDeleteSubfolderCount} subfolder${pendingDeleteSubfolderCount === 1 ? "" : "s"}, ${pendingDeleteFeedCount} feed${pendingDeleteFeedCount === 1 ? "" : "s"}, and all stored articles inside them.`
-              : "This folder is empty."}
-          </div>
-          <div className="mt-2.5 flex items-center justify-end gap-1.5">
-            <Button
-              variant="secondary"
-              size="sm"
-              className="h-7 rounded-[9px] border-border-subtle bg-background px-2.5 text-[12px] font-medium text-content-muted shadow-none hover:bg-interactive-hover hover:text-content"
-              onClick={() => setPendingDeleteFolderId(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="h-7 rounded-[9px] px-2.5 text-[12px] font-medium shadow-none"
-              onClick={() => void handleDeleteFolder(pendingDeleteFolder.id)}
-            >
-              Delete folder
-            </Button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -428,6 +438,7 @@ function SidebarTreeContext({
   editingFolderId,
   creatingFeedId,
   editingFeedId,
+  pendingDeleteFolderId,
   onCommitFolderRename,
   onCommitFeedRename,
   onCancelFolderRename,
@@ -435,7 +446,10 @@ function SidebarTreeContext({
   onStartFolderRename,
   onStartFeedRename,
   onRequestDeleteFolder,
+  onCancelDeleteFolder,
+  onConfirmDeleteFolder,
   onDeleteFeed,
+  onMoveFeedIntoNewFolder,
   onSubmitFeedUrl,
   onCancelCreateFeed,
 }: {
@@ -444,7 +458,7 @@ function SidebarTreeContext({
   depth: number;
   currentRoute: ROUTE;
   routeParams: Record<string, string | number | boolean | null>;
-  feeds: Array<{ id: string; iconUrl: string | null }>;
+  feeds: Array<{ id: string; iconUrl: string | null; folderId: string | null }>;
   expandedFolderIds: Record<string, boolean>;
   activeDropFolderId: string | null;
   toggleFolderTree: (folderId: string) => void;
@@ -454,6 +468,7 @@ function SidebarTreeContext({
   editingFolderId: string | null;
   creatingFeedId: string | null;
   editingFeedId: string | null;
+  pendingDeleteFolderId: string | null;
   onCommitFolderRename: (
     folderId: string,
     name: string,
@@ -464,7 +479,10 @@ function SidebarTreeContext({
   onStartFolderRename: (folderId: string) => void;
   onStartFeedRename: (feedId: string) => void;
   onRequestDeleteFolder: (folderId: string) => void;
+  onCancelDeleteFolder: () => void;
+  onConfirmDeleteFolder: (folderId: string) => void | Promise<void>;
   onDeleteFeed: (feedId: string) => void | Promise<void>;
+  onMoveFeedIntoNewFolder: (feedId: string) => void | Promise<void>;
   onSubmitFeedUrl: (feedId: string, value: string) => void | Promise<void>;
   onCancelCreateFeed: (feedId: string) => void | Promise<void>;
 }) {
@@ -498,6 +516,9 @@ function SidebarTreeContext({
                 onCommitRename={(value) => onCommitFeedRename(node.id, value)}
                 onCancelRename={onCancelFeedRename}
                 onContextMenuRename={() => onStartFeedRename(node.id)}
+                onContextMenuMoveIntoNewFolder={() =>
+                  void onMoveFeedIntoNewFolder(node.id)
+                }
                 onContextMenuDelete={() => void onDeleteFeed(node.id)}
                 onSubmitUrl={(value) => onSubmitFeedUrl(node.id, value)}
                 onCancelCreate={() => onCancelCreateFeed(node.id)}
@@ -513,6 +534,22 @@ function SidebarTreeContext({
         const isExpanded = expandedFolderIds[node.id] ?? true;
         const isActive =
           currentRoute === ROUTE.FOLDER && routeParams.folderId === node.id;
+        const isDeletePending = pendingDeleteFolderId === node.id;
+        const pendingDeleteFolderIds = isDeletePending
+          ? [node.id, ...getDescendantFolderIdsFromNodes(node)]
+          : [];
+        const pendingDeleteFeedCount = feeds.filter(
+          (feed) => feed.folderId && pendingDeleteFolderIds.includes(feed.folderId),
+        ).length;
+        const pendingDeleteSubfolderCount = Math.max(
+          0,
+          pendingDeleteFolderIds.length - 1,
+        );
+        const deleteConfirmationMessage = isDeletePending
+          ? pendingDeleteSubfolderCount > 0 || pendingDeleteFeedCount > 0
+            ? `This will permanently delete ${pendingDeleteSubfolderCount} subfolder${pendingDeleteSubfolderCount === 1 ? "" : "s"}, ${pendingDeleteFeedCount} feed${pendingDeleteFeedCount === 1 ? "" : "s"}, and all stored articles inside them.`
+            : "This folder is empty."
+          : null;
 
         return (
           <div key={node.id} className="flex flex-col">
@@ -542,6 +579,9 @@ function SidebarTreeContext({
               onContextMenuDelete={() => onRequestDeleteFolder(node.id)}
               onCommitRename={(name) => onCommitFolderRename(node.id, name)}
               onCancelRename={onCancelFolderRename}
+              deleteConfirmationMessage={deleteConfirmationMessage}
+              onCancelDelete={onCancelDeleteFolder}
+              onConfirmDelete={() => void onConfirmDeleteFolder(node.id)}
             />
 
             {isExpanded ? (
@@ -561,6 +601,7 @@ function SidebarTreeContext({
                 editingFolderId={editingFolderId}
                 creatingFeedId={creatingFeedId}
                 editingFeedId={editingFeedId}
+                pendingDeleteFolderId={pendingDeleteFolderId}
                 onCommitFolderRename={onCommitFolderRename}
                 onCommitFeedRename={onCommitFeedRename}
                 onCancelFolderRename={onCancelFolderRename}
@@ -568,7 +609,10 @@ function SidebarTreeContext({
                 onStartFolderRename={onStartFolderRename}
                 onStartFeedRename={onStartFeedRename}
                 onRequestDeleteFolder={onRequestDeleteFolder}
+                onCancelDeleteFolder={onCancelDeleteFolder}
+                onConfirmDeleteFolder={onConfirmDeleteFolder}
                 onDeleteFeed={onDeleteFeed}
+                onMoveFeedIntoNewFolder={onMoveFeedIntoNewFolder}
                 onSubmitFeedUrl={onSubmitFeedUrl}
                 onCancelCreateFeed={onCancelCreateFeed}
               />
@@ -605,6 +649,14 @@ function getDescendantFolderIds(
     childFolderId,
     ...getDescendantFolderIds(folders, childFolderId),
   ]);
+}
+
+function getDescendantFolderIdsFromNodes(node: Extract<SidebarNode, { type: "folder" }>): string[] {
+  return node.children.flatMap((child) =>
+    child.type === "folder"
+      ? [child.id, ...getDescendantFolderIdsFromNodes(child)]
+      : [],
+  );
 }
 
 function getSidebarDragItem(

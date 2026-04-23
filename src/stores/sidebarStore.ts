@@ -28,6 +28,7 @@ type SidebarState = {
   loadSidebarData: () => Promise<void>;
   toggleFolder: (folderId: string) => void;
   toggleFolderTree: (folderId: string) => void;
+  setFolderExpanded: (folderId: string, isExpanded: boolean) => void;
   setSidebarStructure: (folders: FolderRecord[], feeds: FeedRecord[]) => void;
   persistSidebarStructure: () => Promise<void>;
   reloadSidebarData: () => Promise<void>;
@@ -105,6 +106,17 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
       for (const descendantFolderId of descendantFolderIds) {
         expandedFolderIds[descendantFolderId] = nextExpandedState;
       }
+
+      void saveExpandedFolderIds(expandedFolderIds);
+
+      return { expandedFolderIds };
+    }),
+  setFolderExpanded: (folderId, isExpanded) =>
+    set((state) => {
+      const expandedFolderIds = {
+        ...state.expandedFolderIds,
+        [folderId]: isExpanded,
+      };
 
       void saveExpandedFolderIds(expandedFolderIds);
 

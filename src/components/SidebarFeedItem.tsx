@@ -1,4 +1,4 @@
-import { RssIcon, TextCursorInputIcon, TrashIcon } from "lucide-react";
+import { FolderPlusIcon, RssIcon, TextCursorInputIcon, TrashIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   ContextMenu,
@@ -23,6 +23,7 @@ type SidebarFeedItemProps = {
   onCommitRename?: (value: string) => void | Promise<void>;
   onCancelRename?: () => void | Promise<void>;
   onContextMenuRename?: () => void;
+  onContextMenuMoveIntoNewFolder?: () => void;
   onContextMenuDelete?: () => void;
 };
 
@@ -40,6 +41,7 @@ export function SidebarFeedItem({
   onCommitRename,
   onCancelRename,
   onContextMenuRename,
+  onContextMenuMoveIntoNewFolder,
   onContextMenuDelete,
 }: SidebarFeedItemProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({ id });
@@ -150,6 +152,14 @@ export function SidebarFeedItem({
           >
             <TextCursorInputIcon className="mr-2 size-3.5" />
             Rename feed
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              window.setTimeout(() => onContextMenuMoveIntoNewFolder?.(), 0);
+            }}
+          >
+            <FolderPlusIcon className="mr-2 size-3.5" />
+            Move into new folder
           </ContextMenuItem>
           <ContextMenuItem
             className="text-danger data-[highlighted]:bg-danger/10 data-[highlighted]:text-danger"

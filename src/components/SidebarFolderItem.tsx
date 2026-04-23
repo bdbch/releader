@@ -7,6 +7,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -32,6 +33,9 @@ type SidebarFolderItemProps = {
   onToggle?: () => void;
   onCommitRename?: (name: string) => void | Promise<void>;
   onCancelRename?: () => void;
+  deleteConfirmationMessage?: string | null;
+  onCancelDelete?: () => void;
+  onConfirmDelete?: () => void;
 };
 
 export function SidebarFolderItem({
@@ -49,6 +53,9 @@ export function SidebarFolderItem({
   onToggle,
   onCommitRename,
   onCancelRename,
+  deleteConfirmationMessage,
+  onCancelDelete,
+  onConfirmDelete,
 }: SidebarFolderItemProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({ id });
   const { isOver, setNodeRef: setDropInsideNodeRef } = useDroppable({
@@ -167,6 +174,35 @@ export function SidebarFolderItem({
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
+
+      {deleteConfirmationMessage ? (
+        <div className="mt-1 ml-2 rounded-[12px] border border-border-subtle bg-surface-subtle p-2.5">
+          <div className="text-[12px] font-medium text-content">
+            Delete "{label}"?
+          </div>
+          <div className="mt-1 text-[12px] leading-5 text-content-muted">
+            {deleteConfirmationMessage}
+          </div>
+          <div className="mt-2.5 flex items-center justify-end gap-1.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-7 rounded-[9px] border-border-subtle bg-background px-2.5 text-[12px] font-medium text-content-muted shadow-none hover:bg-interactive-hover hover:text-content"
+              onClick={onCancelDelete}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-7 rounded-[9px] px-2.5 text-[12px] font-medium shadow-none"
+              onClick={onConfirmDelete}
+            >
+              Delete folder
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
