@@ -3,13 +3,36 @@
 @theme {
     --font-sans: "Inter", system-ui, sans-serif;
 
-    --color-background: #ffffff;
-    --color-muted: #f0f0f0;
+    --color-canvas: #f7f7f5;
+    --color-surface: #ffffff;
+    --color-surface-muted: #f1f1ee;
+    --color-surface-subtle: #f7f7f4;
+    --color-surface-raised: #fcfcfb;
+    --color-surface-overlay: #ffffff;
 
-    --color-foreground: #000000;
-    --color-muted-foreground: #757575;
+    --color-content: #151515;
+    --color-content-muted: #6f6f69;
+    --color-content-subtle: #8a8a84;
 
-    --color-border: #e0e0e0;
+    --color-border-subtle: #e3e3dd;
+    --color-border-strong: #cfcfc8;
+
+    --color-accent: #1f1f1f;
+    --color-accent-foreground: #ffffff;
+    --color-accent-muted: #ecece7;
+
+    --color-danger: #c53b31;
+    --color-danger-foreground: #ffffff;
+
+    --color-interactive-hover: #f3f3ef;
+    --color-interactive-active: #ebebe5;
+    --color-focus-ring: rgb(21 21 21 / 0.1);
+
+    --color-background: var(--color-surface);
+    --color-muted: var(--color-surface-muted);
+    --color-foreground: var(--color-content);
+    --color-muted-foreground: var(--color-content-muted);
+    --color-border: var(--color-border-subtle);
 
     --spacing-titlebar: 2.5rem;
 }
@@ -21,7 +44,7 @@
 }
 
 :root {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-canvas text-content font-sans;
 }
 
 html,

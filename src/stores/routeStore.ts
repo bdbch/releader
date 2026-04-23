@@ -5,13 +5,17 @@ export enum ROUTE {
   UNREAD = "UNREAD",
 }
 
-export const useRoutes = create<{
+export type RouteParams = Record<string, string | number | boolean | null>;
+
+type RouteState = {
   currentRoute: ROUTE;
-  routeParams: Record<string, any>;
-  setCurrentRoute: (route: ROUTE) => void;
-}>((set) => ({
+  routeParams: RouteParams;
+  setCurrentRoute: (route: ROUTE, params?: RouteParams) => void;
+};
+
+export const useRoutes = create<RouteState>((set) => ({
   currentRoute: ROUTE.DASHBOARD,
   routeParams: {},
-  setCurrentRoute: (route: ROUTE, params?: Record<string, any>) =>
+  setCurrentRoute: (route: ROUTE, params?: RouteParams) =>
     set({ currentRoute: route, routeParams: params ?? {} }),
 }));
