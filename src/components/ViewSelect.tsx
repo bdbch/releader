@@ -1,6 +1,6 @@
 import { Settings2Icon } from "lucide-react";
 import { Select } from "@/components/Select";
-import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/Popover";
 import { Switch } from "@/components/ui/Switch";
 
@@ -26,14 +26,10 @@ export function ViewSelect({ value, onValueChange }: ViewSelectProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
-          size="sm"
-          iconLeft={<Settings2Icon className="size-[15px]" />}
-          className="rounded-[10px]"
-        >
-          View
-        </Button>
+        <IconButton
+          icon={<Settings2Icon className="size-[15px]" />}
+          label="View options"
+        />
       </PopoverTrigger>
       <PopoverContent className="w-72 p-1.5" align="end">
         <div className="flex flex-col gap-1">

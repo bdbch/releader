@@ -12,6 +12,7 @@ type SelectProps = {
   onValueChange: (value: string) => void;
   options: SelectOption[];
   ariaLabel: string;
+  triggerClassName?: string;
 };
 
 export function Select({
@@ -19,6 +20,7 @@ export function Select({
   onValueChange,
   options,
   ariaLabel,
+  triggerClassName,
 }: SelectProps) {
   return (
     <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
@@ -27,6 +29,7 @@ export function Select({
         className={cn(
           "inline-flex h-8.5 min-w-28 items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface px-3 text-[13px] text-content outline-none transition-colors",
           "hover:bg-interactive-hover focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring",
+          triggerClassName ?? "",
         )}
       >
         <SelectPrimitive.Value />

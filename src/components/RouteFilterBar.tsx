@@ -1,13 +1,16 @@
-import { cn } from "@/lib/cn";
+import { Combobox } from "@/components/Combobox";
+import { Select } from "@/components/Select";
 
 type FilterOption = {
   label: string;
-  active?: boolean;
+  value: string;
 };
 
 type FilterGroup = {
   label: string;
+  value: string;
   options: FilterOption[];
+  kind?: "select" | "combobox";
 };
 
 type RouteFilterBarProps = {
@@ -16,35 +19,32 @@ type RouteFilterBarProps = {
 
 export function RouteFilterBar({ groups }: RouteFilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-2">
       {groups.map((group) => (
-        <div
-          key={group.label}
-          className="flex items-center gap-0.5 rounded-[10px] border border-border-subtle bg-surface-subtle p-0.5"
-        >
-          <span className="px-2 text-[10px] font-medium text-content-subtle">
+        <div key={group.label} className="flex items-center gap-2">
+          <span className="text-[11px] font-medium text-content-subtle">
             {group.label}
           </span>
-          {group.options.map((option) => (
-            <button
-              key={option.label}
-              type="button"
-              className={cn(
-                buttonClassName,
-                option.active ? activeButtonClassName : "",
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
+          {group.kind === "combobox" ? (
+            <Combobox
+              value={group.value}
+              onValueChange={() => undefined}
+              options={group.options}
+              ariaLabel={group.label}
+              placeholder="Search feeds"
+              triggerClassName="h-8 min-w-36 rounded-[10px] bg-surface-raised text-[12px]"
+            />
+          ) : (
+            <Select
+              value={group.value}
+              onValueChange={() => undefined}
+              options={group.options}
+              ariaLabel={group.label}
+              triggerClassName="h-8 min-w-28 rounded-[10px] bg-surface-raised text-[12px]"
+            />
+          )}
         </div>
       ))}
     </div>
   );
 }
-
-const buttonClassName =
-  "rounded-[8px] px-2.5 py-1.25 text-[11px] font-medium text-content-muted transition-colors hover:bg-surface hover:text-content";
-
-const activeButtonClassName =
-  "border border-border-subtle bg-surface text-content shadow-[0_1px_1px_rgba(0,0,0,0.03)]";

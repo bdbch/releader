@@ -9,7 +9,7 @@ export function FolderRoute() {
   );
 
   return (
-    <RouteLayout title={folder?.name ?? "Folder"} meta="Folder view">
+    <RouteLayout title={folder?.name ?? "Folder"}>
       <section className="border-b px-6 py-5 text-[13px] text-muted-foreground">
         Folder articles will appear here.
       </section>

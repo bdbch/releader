@@ -11,30 +11,39 @@ export function DashboardRoute() {
   return (
     <RouteLayout
       title="Dashboard"
-      meta="24 new items"
       actions={<ViewSelect value={view} onValueChange={setView} />}
       filters={
         <RouteFilterBar
           groups={[
             {
               label: "State",
+              value: "all",
               options: [
-                { label: "All", active: true },
-                { label: "Unread" },
-                { label: "Saved" },
+                { label: "All", value: "all" },
+                { label: "Unread", value: "unread" },
+                { label: "Saved", value: "saved" },
               ],
             },
             {
               label: "When",
+              value: "today",
               options: [
-                { label: "Today", active: true },
-                { label: "This week" },
-                { label: "Any time" },
+                { label: "Today", value: "today" },
+                { label: "This week", value: "this-week" },
+                { label: "Any time", value: "any-time" },
               ],
             },
             {
               label: "Source",
-              options: [{ label: "All feeds", active: true }],
+              value: "all-feeds",
+              kind: "combobox",
+              options: [
+                { label: "All feeds", value: "all-feeds" },
+                { label: "Ars Technica", value: "ars-technica" },
+                { label: "Figma", value: "figma" },
+                { label: "Tauri Blog", value: "tauri-blog" },
+                { label: "The Verge", value: "the-verge" },
+              ],
             },
           ]}
         />

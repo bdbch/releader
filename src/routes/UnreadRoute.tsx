@@ -11,31 +11,33 @@ export function UnreadRoute() {
   return (
     <RouteLayout
       title="Unread"
-      meta="12 unread"
       actions={<ViewSelect value={view} onValueChange={setView} />}
       filters={
         <RouteFilterBar
           groups={[
             {
               label: "Sort",
+              value: "newest",
               options: [
-                { label: "Newest first", active: true },
-                { label: "Oldest first" },
+                { label: "Newest first", value: "newest" },
+                { label: "Oldest first", value: "oldest" },
               ],
             },
             {
               label: "When",
+              value: "today",
               options: [
-                { label: "Today", active: true },
-                { label: "This week" },
-                { label: "Any time" },
+                { label: "Today", value: "today" },
+                { label: "This week", value: "this-week" },
+                { label: "Any time", value: "any-time" },
               ],
             },
             {
               label: "Saved",
+              value: "all-unread",
               options: [
-                { label: "All unread", active: true },
-                { label: "Saved only" },
+                { label: "All unread", value: "all-unread" },
+                { label: "Saved only", value: "saved-only" },
               ],
             },
           ]}

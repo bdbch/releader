@@ -9,7 +9,7 @@ export function FeedRoute() {
   );
 
   return (
-    <RouteLayout title={feed?.title ?? "Feed"} meta="Feed view">
+    <RouteLayout title={feed?.title ?? "Feed"}>
       <section className="border-b px-6 py-5 text-[13px] text-muted-foreground">
         Feed articles will appear here.
       </section>

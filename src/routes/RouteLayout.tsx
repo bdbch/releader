@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 type RouteLayoutProps = {
   title: string;
-  meta: string;
   filters?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
@@ -10,7 +9,6 @@ type RouteLayoutProps = {
 
 export function RouteLayout({
   title,
-  meta,
   filters,
   actions,
   children,
@@ -24,17 +22,11 @@ export function RouteLayout({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-baseline gap-3" data-tauri-drag-region>
             <h1
-              className="text-[1.9rem] font-semibold tracking-[-0.03em] text-foreground"
+              className="text-[1.45rem] font-semibold tracking-[-0.03em] text-foreground"
               data-tauri-drag-region
             >
               {title}
             </h1>
-            <span
-              className="text-[13px] font-medium text-muted-foreground"
-              data-tauri-drag-region
-            >
-              {meta}
-            </span>
           </div>
           {actions ? <div className="shrink-0">{actions}</div> : null}
         </div>
