@@ -47,13 +47,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
 const buttonVariantClassName: Record<ButtonVariant, string> = {
   default:
-    "border-border-strong bg-content text-accent-foreground hover:bg-black/88 active:border-black/55 active:bg-black/82",
+    "border-border-strong bg-accent text-accent-foreground hover:bg-accent-hover active:border-accent-border-active active:bg-accent-active",
   secondary:
     "border-border-subtle bg-surface text-content hover:border-border-strong hover:bg-surface-subtle active:bg-interactive-active",
   ghost:
     "border-transparent bg-transparent text-content-muted hover:bg-interactive-hover hover:text-content active:bg-interactive-active",
   destructive:
-    "border-[#d8b7b3] bg-[#f8ecea] text-[#8f312b] hover:border-[#cda49f] hover:bg-[#f4e1de] active:bg-[#edd2cd]",
+    "border-danger-border bg-danger-surface text-danger-content hover:border-danger-border-hover hover:bg-danger-surface-hover active:bg-danger-surface-active",
 };
 
 const buttonSizeClassName: Record<ButtonSize, string> = {

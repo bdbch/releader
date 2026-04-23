@@ -26,6 +26,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import { Switch } from "@/components/ui/Switch";
+import { useThemeStore } from "@/stores/themeStore";
 import { SidebarDropZone } from "./SidebarDropZone";
 import { SidebarDragPreview } from "./SidebarDragPreview";
 import { SidebarFeedItem } from "./SidebarFeedItem";
@@ -58,6 +60,8 @@ export function Sidebar() {
   const persistSidebarStructure = useSidebarStore(
     (state) => state.persistSidebarStructure,
   );
+  const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const [activeDropFolderId, setActiveDropFolderId] = useState<string | null>(
     null,
   );
@@ -323,112 +327,128 @@ export function Sidebar() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-0.5">
-        <SidebarButton
-          label="Dashboard"
-          iconLeft={<LayoutDashboardIcon className="size-4" />}
-          onClick={() => setCurrentRoute(ROUTE.DASHBOARD)}
-          isActive={currentRoute === ROUTE.DASHBOARD}
-        />
-        <SidebarButton
-          label="Unread"
-          iconLeft={<MailIcon className="size-4" />}
-          onClick={() => setCurrentRoute(ROUTE.UNREAD)}
-          isActive={currentRoute === ROUTE.UNREAD}
-        />
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between px-2">
-          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-content-subtle">
-            Library
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <span>
-                <button className="p-1.5 cursor-pointer rounded-sm hover:bg-interactive-hover active:bg-interactive-active">
-                  <PlusIcon className="size-2.5" />
-                </button>
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={() => void handleCreateFeed()}
-              >
-                Feed
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleCreateFolder()}>
-                Folder
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-5">
+        <div className="flex flex-col gap-0.5">
+          <SidebarButton
+            label="Dashboard"
+            iconLeft={<LayoutDashboardIcon className="size-4" />}
+            onClick={() => setCurrentRoute(ROUTE.DASHBOARD)}
+            isActive={currentRoute === ROUTE.DASHBOARD}
+          />
+          <SidebarButton
+            label="Unread"
+            iconLeft={<MailIcon className="size-4" />}
+            onClick={() => setCurrentRoute(ROUTE.UNREAD)}
+            isActive={currentRoute === ROUTE.UNREAD}
+          />
         </div>
 
-        {error ? (
-          <div className="px-2 text-[12px] text-danger">{error}</div>
-        ) : null}
+        <div className="flex min-h-0 flex-1 flex-col gap-1">
+          <div className="flex items-center justify-between px-2">
+            <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-content-subtle">
+              Library
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <span>
+                  <button className="p-1.5 cursor-pointer rounded-sm hover:bg-interactive-hover active:bg-interactive-active">
+                    <PlusIcon className="size-2.5" />
+                  </button>
+                </span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={() => void handleCreateFeed()}
+                >
+                  Feed
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void handleCreateFolder()}>
+                  Folder
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragMove={handleDragMove}
-          onDragEnd={handleDragEnd}
-          onDragCancel={() => {
-            setActiveDropFolderId(null);
-            setActiveDragId(null);
-          }}
-        >
-          <SortableContext
-            items={sortableIds}
-            strategy={verticalListSortingStrategy}
-          >
-            <SidebarTreeContext
-              nodes={tree}
-              contextId={null}
-              depth={0}
-              currentRoute={currentRoute}
-              routeParams={routeParams}
-              feeds={feeds}
-              expandedFolderIds={expandedFolderIds}
-              activeDropFolderId={activeDropFolderId}
-              toggleFolderTree={toggleFolderTree}
-              onToggleFolder={toggleFolder}
-              onSelectFolder={(folderId) =>
-                setCurrentRoute(ROUTE.FOLDER, { folderId })
-              }
-              onSelectFeed={(feedId) => setCurrentRoute(ROUTE.FEED, { feedId })}
-              onCreateFeed={handleCreateFeed}
-              editingFolderId={editingFolderId}
-              creatingFeedId={creatingFeedId}
-              editingFeedId={editingFeedId}
-              pendingDeleteFolderId={pendingDeleteFolderId}
-              onCommitFolderRename={handleCommitFolderRename}
-              onCommitFeedRename={handleCommitFeedRename}
-              onCancelFolderRename={() => setEditingFolderId(null)}
-              onCancelFeedRename={() => setEditingFeedId(null)}
-              onStartFolderRename={(folderId) => setEditingFolderId(folderId)}
-              onStartFeedRename={(feedId) => setEditingFeedId(feedId)}
-              onRequestDeleteFolder={(folderId) => setPendingDeleteFolderId(folderId)}
-              onCancelDeleteFolder={() => setPendingDeleteFolderId(null)}
-              onConfirmDeleteFolder={handleDeleteFolder}
-              onDeleteFeed={handleDeleteFeed}
-              onMoveFeedIntoNewFolder={handleMoveFeedIntoNewFolder}
-              onSubmitFeedUrl={handleSubmitFeedUrl}
-              onCancelCreateFeed={handleCancelCreateFeed}
-            />
-          </SortableContext>
-          <DragOverlay>
-            {activeDragItem ? (
-              <SidebarDragPreview
-                type={activeDragItem.type}
-                label={activeDragItem.label}
-                iconUrl={activeDragItem.iconUrl}
-              />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+          {error ? (
+            <div className="px-2 text-[12px] text-danger">{error}</div>
+          ) : null}
+
+          <div className="min-h-0 flex-1 overflow-auto">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragMove={handleDragMove}
+              onDragEnd={handleDragEnd}
+              onDragCancel={() => {
+                setActiveDropFolderId(null);
+                setActiveDragId(null);
+              }}
+            >
+              <SortableContext
+                items={sortableIds}
+                strategy={verticalListSortingStrategy}
+              >
+                <SidebarTreeContext
+                  nodes={tree}
+                  contextId={null}
+                  depth={0}
+                  currentRoute={currentRoute}
+                  routeParams={routeParams}
+                  feeds={feeds}
+                  expandedFolderIds={expandedFolderIds}
+                  activeDropFolderId={activeDropFolderId}
+                  toggleFolderTree={toggleFolderTree}
+                  onToggleFolder={toggleFolder}
+                  onSelectFolder={(folderId) =>
+                    setCurrentRoute(ROUTE.FOLDER, { folderId })
+                  }
+                  onSelectFeed={(feedId) => setCurrentRoute(ROUTE.FEED, { feedId })}
+                  onCreateFeed={handleCreateFeed}
+                  editingFolderId={editingFolderId}
+                  creatingFeedId={creatingFeedId}
+                  editingFeedId={editingFeedId}
+                  pendingDeleteFolderId={pendingDeleteFolderId}
+                  onCommitFolderRename={handleCommitFolderRename}
+                  onCommitFeedRename={handleCommitFeedRename}
+                  onCancelFolderRename={() => setEditingFolderId(null)}
+                  onCancelFeedRename={() => setEditingFeedId(null)}
+                  onStartFolderRename={(folderId) => setEditingFolderId(folderId)}
+                  onStartFeedRename={(feedId) => setEditingFeedId(feedId)}
+                  onRequestDeleteFolder={(folderId) => setPendingDeleteFolderId(folderId)}
+                  onCancelDeleteFolder={() => setPendingDeleteFolderId(null)}
+                  onConfirmDeleteFolder={handleDeleteFolder}
+                  onDeleteFeed={handleDeleteFeed}
+                  onMoveFeedIntoNewFolder={handleMoveFeedIntoNewFolder}
+                  onSubmitFeedUrl={handleSubmitFeedUrl}
+                  onCancelCreateFeed={handleCancelCreateFeed}
+                />
+              </SortableContext>
+              <DragOverlay>
+                {activeDragItem ? (
+                  <SidebarDragPreview
+                    type={activeDragItem.type}
+                    label={activeDragItem.label}
+                    iconUrl={activeDragItem.iconUrl}
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-3">
+        <label className="flex w-fit items-center gap-2 rounded-[10px] px-2 py-1.5 text-[11px] font-medium text-content-muted transition-colors hover:bg-interactive-hover hover:text-content">
+          <Switch
+            checked={resolvedTheme === "dark"}
+            onCheckedChange={() => toggleTheme()}
+            aria-label="Toggle dark mode"
+            className="h-4.5 w-8 p-[2px] data-[state=checked]:bg-accent"
+          />
+          <span>Dark</span>
+        </label>
       </div>
     </div>
   );
