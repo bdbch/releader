@@ -22,3 +22,7 @@ export async function saveSidebarStructure({
 }) {
   return invoke("save_sidebar_structure", { folders, feeds });
 }
+
+export async function deleteFeed(feedId: string) {
+  return invoke<{ feedId: string }>("delete_feed", { feedId });
+}

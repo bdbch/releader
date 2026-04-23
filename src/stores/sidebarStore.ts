@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { getSidebarData, saveSidebarStructure } from "@/lib/sidebarApi";
+import {
+  deleteFeed,
+  getSidebarData,
+  saveSidebarStructure,
+} from "@/lib/sidebarApi";
 import {
   loadExpandedFolderIds,
   saveExpandedFolderIds,
@@ -19,6 +23,7 @@ type SidebarState = {
   toggleFolderTree: (folderId: string) => void;
   setSidebarStructure: (folders: FolderRecord[], feeds: FeedRecord[]) => void;
   persistSidebarStructure: () => Promise<void>;
+  removeFeed: (feedId: string) => Promise<void>;
 };
 
 export const useSidebarStore = create<SidebarState>((set, get) => ({
@@ -94,6 +99,11 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
   persistSidebarStructure: async () => {
     const { folders, feeds } = get();
     await saveSidebarStructure(serializeSidebarStructure(folders, feeds));
+  },
+  removeFeed: async (feedId) => {
+    await deleteFeed(feedId);
+    set({ hasLoaded: false });
+    await get().loadSidebarData();
   },
 }));
 

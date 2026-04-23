@@ -7,7 +7,10 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { LayoutDashboardIcon, MailIcon } from "lucide-react";
 import { moveSidebarNode } from "@/lib/sidebarMove";
 import { buildSidebarTree } from "@/lib/sidebarTree";
@@ -31,11 +34,15 @@ export function Sidebar() {
   const loadSidebarData = useSidebarStore((state) => state.loadSidebarData);
   const toggleFolder = useSidebarStore((state) => state.toggleFolder);
   const toggleFolderTree = useSidebarStore((state) => state.toggleFolderTree);
-  const setSidebarStructure = useSidebarStore((state) => state.setSidebarStructure);
+  const setSidebarStructure = useSidebarStore(
+    (state) => state.setSidebarStructure,
+  );
   const persistSidebarStructure = useSidebarStore(
     (state) => state.persistSidebarStructure,
   );
-  const [activeDropFolderId, setActiveDropFolderId] = useState<string | null>(null);
+  const [activeDropFolderId, setActiveDropFolderId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     void loadSidebarData();
@@ -148,7 +155,10 @@ export function Sidebar() {
           onDragEnd={handleDragEnd}
           onDragCancel={() => setActiveDropFolderId(null)}
         >
-          <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+          <SortableContext
+            items={sortableIds}
+            strategy={verticalListSortingStrategy}
+          >
             <SidebarTreeContext
               nodes={tree}
               contextId={null}
@@ -209,7 +219,7 @@ function SidebarTreeContext({
             currentRoute === ROUTE.FEED && routeParams.feedId === node.id;
 
           return (
-            <div key={node.id} className="flex flex-col gap-0.5">
+            <div key={node.id} className="flex flex-col">
               <SidebarFeedItem
                 id={node.id}
                 label={node.title}
@@ -230,7 +240,7 @@ function SidebarTreeContext({
           currentRoute === ROUTE.FOLDER && routeParams.folderId === node.id;
 
         return (
-          <div key={node.id} className="flex flex-col gap-0.5">
+          <div key={node.id} className="flex flex-col">
             <SidebarFolderItem
               id={node.id}
               label={node.name}

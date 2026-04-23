@@ -1,4 +1,4 @@
-import { cn } from "@/lib/cn";
+import { cn } from "../lib/cn";
 
 export function SidebarButton({
   label,
@@ -16,7 +16,7 @@ export function SidebarButton({
   return (
     <button
       className={cn(
-        "flex items-center justify-start gap-1.5 text-sm text-muted-foreground py-1.5 px-2 rounded cursor-pointer w-full text-left",
+        "flex items-center justify-start gap-1.5 text-xs text-muted-foreground py-1.5 px-2 rounded cursor-pointer w-full text-left",
         !isActive
           ? "hover:bg-muted text-muted-foreground"
           : "bg-muted text-foreground",

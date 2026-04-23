@@ -16,6 +16,8 @@ export type FeedRecord = {
   sortOrder: number;
   iconUrl: string | null;
   lastFetchedAt: string | null;
+  lastFetchStatus: string | null;
+  lastFetchError: string | null;
   createdAt: string;
   updatedAt: string;
 };

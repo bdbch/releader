@@ -43,11 +43,13 @@ export function SidebarFolderItem({
         type="button"
         ref={setNodeRef}
         className={cn(
-        baseRowClassName,
-        isActive ? activeRowClassName : hoverRowClassName,
-        isDragging ? "opacity-60" : "",
-        isOver || isDropTarget ? "bg-surface-subtle ring-1 ring-border-strong" : "",
-      )}
+          baseRowClassName,
+          isActive ? activeRowClassName : hoverRowClassName,
+          isDragging ? "opacity-60" : "",
+          isOver || isDropTarget
+            ? "bg-surface-subtle ring-1 ring-border-strong"
+            : "",
+        )}
         style={{ paddingLeft: 10 + depth * 13 }}
         {...attributes}
         {...listeners}
@@ -64,18 +66,18 @@ export function SidebarFolderItem({
           }}
         >
           {isExpanded ? (
-            <ChevronDownIcon className="size-[13px]" />
+            <ChevronDownIcon className="size-3" />
           ) : (
-            <ChevronRightIcon className="size-[13px]" />
+            <ChevronRightIcon className="size-3" />
           )}
         </span>
 
         <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
           <span className="flex size-4 items-center justify-center text-content-subtle">
             {isExpanded ? (
-              <FolderOpenIcon className="size-[14px]" />
+              <FolderOpenIcon className="size-4" />
             ) : (
-              <FolderIcon className="size-[14px]" />
+              <FolderIcon className="size-4" />
             )}
           </span>
           <span className="truncate">{label}</span>
@@ -86,7 +88,7 @@ export function SidebarFolderItem({
 }
 
 const baseRowClassName =
-  "flex h-8 w-full items-center gap-1.5 rounded-[8px] pr-2 text-[13px] font-medium text-content-muted transition-colors";
+  "flex h-8 w-full items-center gap-1.5 rounded-sm pr-2 text-xs text-content-muted transition-colors";
 
 const hoverRowClassName = "hover:bg-interactive-hover hover:text-content";
 

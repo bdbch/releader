@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 import type { ArticleListDensity } from "@/components/ViewSelect";
 
-type ArticleListItem = {
+export type ArticleListItem = {
   id: string;
   title: string;
   feed: string;

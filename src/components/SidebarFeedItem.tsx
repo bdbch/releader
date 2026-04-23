@@ -35,7 +35,7 @@ export function SidebarFeedItem({
     >
       <span className="-ml-0.5 flex h-4 w-3 shrink-0" aria-hidden="true" />
       <span className="flex size-4 items-center justify-center text-content-subtle">
-        <RssIcon className="size-[13px]" />
+        <RssIcon className="size-3" />
       </span>
       <span className="truncate">{label}</span>
     </button>
@@ -43,7 +43,7 @@ export function SidebarFeedItem({
 }
 
 const baseRowClassName =
-  "flex h-8 w-full items-center gap-1.5 rounded-[8px] pr-2 text-[13px] font-medium text-content-muted text-left transition-colors";
+  "flex h-8 w-full items-center gap-1.5 rounded-sm pr-2 text-xs text-content-muted text-left transition-colors";
 
 const hoverRowClassName = "hover:bg-interactive-hover hover:text-content";
 
