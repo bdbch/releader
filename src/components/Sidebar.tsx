@@ -66,6 +66,7 @@ export function Sidebar() {
     null,
   );
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [creatingFolderId, setCreatingFolderId] = useState<string | null>(null);
   const [creatingFeedId, setCreatingFeedId] = useState<string | null>(null);
   const [editingFeedId, setEditingFeedId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -169,9 +170,28 @@ export function Sidebar() {
     void persistSidebarStructure();
   }
 
-  async function handleCreateFolder() {
+  async function handleCreateFolder(parentFolderId: string | null = null) {
     const folder = await createRootFolder();
+    setCreatingFolderId(folder.id);
+
+    if (!parentFolderId) {
+      setEditingFolderId(folder.id);
+      return;
+    }
+
+    const nextFolders = [
+      ...folders,
+      {
+        ...folder,
+        parentFolderId,
+        sortOrder: folders.filter((item) => item.parentFolderId === parentFolderId).length,
+      },
+    ];
+
+    setSidebarStructure(nextFolders, feeds);
+    setFolderExpanded(parentFolderId, true);
     setEditingFolderId(folder.id);
+    await persistSidebarStructure();
   }
 
   async function handleCreateFeed(folderId: string | null = null) {
@@ -246,10 +266,18 @@ export function Sidebar() {
   async function handleCommitFolderRename(folderId: string, name: string) {
     try {
       await renameFolder(folderId, name);
+      setCreatingFolderId(null);
       setEditingFolderId(null);
     } catch {
+      setCreatingFolderId(null);
       setEditingFolderId(null);
     }
+  }
+
+  async function handleCancelCreateFolder(folderId: string) {
+    setCreatingFolderId(null);
+    setEditingFolderId(null);
+    await removeFolder(folderId);
   }
 
   async function handleDeleteFolder(folderId: string) {
@@ -406,13 +434,16 @@ export function Sidebar() {
                   }
                   onSelectFeed={(feedId) => setCurrentRoute(ROUTE.FEED, { feedId })}
                   onCreateFeed={handleCreateFeed}
+                  onCreateFolder={handleCreateFolder}
                   editingFolderId={editingFolderId}
+                  creatingFolderId={creatingFolderId}
                   creatingFeedId={creatingFeedId}
                   editingFeedId={editingFeedId}
                   pendingDeleteFolderId={pendingDeleteFolderId}
                   onCommitFolderRename={handleCommitFolderRename}
                   onCommitFeedRename={handleCommitFeedRename}
                   onCancelFolderRename={() => setEditingFolderId(null)}
+                  onCancelCreateFolder={handleCancelCreateFolder}
                   onCancelFeedRename={() => setEditingFeedId(null)}
                   onStartFolderRename={(folderId) => setEditingFolderId(folderId)}
                   onStartFeedRename={(feedId) => setEditingFeedId(feedId)}
@@ -468,13 +499,16 @@ function SidebarTreeContext({
   onSelectFolder,
   onSelectFeed,
   onCreateFeed,
+  onCreateFolder,
   editingFolderId,
+  creatingFolderId,
   creatingFeedId,
   editingFeedId,
   pendingDeleteFolderId,
   onCommitFolderRename,
   onCommitFeedRename,
   onCancelFolderRename,
+  onCancelCreateFolder,
   onCancelFeedRename,
   onStartFolderRename,
   onStartFeedRename,
@@ -499,7 +533,9 @@ function SidebarTreeContext({
   onSelectFolder: (folderId: string) => void;
   onSelectFeed: (feedId: string) => void;
   onCreateFeed: (folderId?: string | null) => void | Promise<void>;
+  onCreateFolder: (parentFolderId?: string | null) => void | Promise<void>;
   editingFolderId: string | null;
+  creatingFolderId: string | null;
   creatingFeedId: string | null;
   editingFeedId: string | null;
   pendingDeleteFolderId: string | null;
@@ -509,6 +545,7 @@ function SidebarTreeContext({
   ) => void | Promise<void>;
   onCommitFeedRename: (feedId: string, title: string) => void | Promise<void>;
   onCancelFolderRename: () => void;
+  onCancelCreateFolder: (folderId: string) => void | Promise<void>;
   onCancelFeedRename: () => void;
   onStartFolderRename: (folderId: string) => void;
   onStartFeedRename: (feedId: string) => void;
@@ -600,6 +637,7 @@ function SidebarTreeContext({
               isActive={isActive}
               isDropTarget={activeDropFolderId === node.id}
               dropInsideZoneId={buildFolderRowDropZoneId(node.id)}
+              isCreating={creatingFolderId === node.id}
               isEditing={editingFolderId === node.id}
               onToggle={() => onToggleFolder(node.id)}
               onClick={(event) => {
@@ -615,10 +653,12 @@ function SidebarTreeContext({
                 onSelectFolder(node.id);
               }}
               onContextMenuCreateFeed={() => void onCreateFeed(node.id)}
+              onContextMenuCreateFolder={() => void onCreateFolder(node.id)}
               onContextMenuRename={() => onStartFolderRename(node.id)}
               onContextMenuDelete={() => onRequestDeleteFolder(node.id)}
               onCommitRename={(name) => onCommitFolderRename(node.id, name)}
               onCancelRename={onCancelFolderRename}
+              onCancelCreate={() => onCancelCreateFolder(node.id)}
               deleteConfirmationMessage={deleteConfirmationMessage}
               onCancelDelete={onCancelDeleteFolder}
               onConfirmDelete={() => void onConfirmDeleteFolder(node.id)}
@@ -639,13 +679,16 @@ function SidebarTreeContext({
                 onSelectFolder={onSelectFolder}
                 onSelectFeed={onSelectFeed}
                 onCreateFeed={onCreateFeed}
+                onCreateFolder={onCreateFolder}
                 editingFolderId={editingFolderId}
+                creatingFolderId={creatingFolderId}
                 creatingFeedId={creatingFeedId}
                 editingFeedId={editingFeedId}
                 pendingDeleteFolderId={pendingDeleteFolderId}
                 onCommitFolderRename={onCommitFolderRename}
                 onCommitFeedRename={onCommitFeedRename}
                 onCancelFolderRename={onCancelFolderRename}
+                onCancelCreateFolder={onCancelCreateFolder}
                 onCancelFeedRename={onCancelFeedRename}
                 onStartFolderRename={onStartFolderRename}
                 onStartFeedRename={onStartFeedRename}

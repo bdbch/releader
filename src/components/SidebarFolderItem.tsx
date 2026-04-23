@@ -19,14 +19,17 @@ type SidebarFolderItemProps = {
   isActive?: boolean;
   isDropTarget?: boolean;
   dropInsideZoneId?: string;
+  isCreating?: boolean;
   isEditing?: boolean;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onContextMenuCreateFolder?: () => void;
   onContextMenuCreateFeed?: () => void;
   onContextMenuRename?: () => void;
   onContextMenuDelete?: () => void;
   onToggle?: () => void;
   onCommitRename?: (name: string) => void | Promise<void>;
   onCancelRename?: () => void;
+  onCancelCreate?: () => void | Promise<void>;
   deleteConfirmationMessage?: string | null;
   onCancelDelete?: () => void;
   onConfirmDelete?: () => void;
@@ -40,14 +43,17 @@ export function SidebarFolderItem({
   isActive,
   isDropTarget,
   dropInsideZoneId,
+  isCreating,
   isEditing,
   onClick,
+  onContextMenuCreateFolder,
   onContextMenuCreateFeed,
   onContextMenuRename,
   onContextMenuDelete,
   onToggle,
   onCommitRename,
   onCancelRename,
+  onCancelCreate,
   deleteConfirmationMessage,
   onCancelDelete,
   onConfirmDelete,
@@ -65,19 +71,24 @@ export function SidebarFolderItem({
   }, [label]);
 
   useEffect(() => {
-    if (!isEditing) {
+    if (!isCreating && !isEditing) {
       return;
     }
 
     inputRef.current?.focus();
     inputRef.current?.select();
-  }, [isEditing]);
+  }, [isCreating, isEditing]);
 
   function handleCommit() {
     void onCommitRename?.(draftName);
   }
 
   const contextMenuItems = [
+    {
+      id: `${id}:new-folder`,
+      text: "New folder",
+      onSelect: onContextMenuCreateFolder,
+    },
     {
       id: `${id}:new-feed`,
       text: "New feed",
@@ -112,12 +123,12 @@ export function SidebarFolderItem({
             : "",
         )}
         style={{ paddingLeft: 10 + depth * 13 }}
-        {...(isEditing ? {} : attributes)}
-        {...(isEditing ? {} : listeners)}
+        {...(isCreating || isEditing ? {} : attributes)}
+        {...(isCreating || isEditing ? {} : listeners)}
         onClick={onClick}
         onDoubleClick={onToggle}
         onContextMenu={
-          isEditing
+          isCreating || isEditing
             ? undefined
             : (event) => {
                 void showNativeContextMenu(event, contextMenuItems);
@@ -148,7 +159,7 @@ export function SidebarFolderItem({
               <FolderIcon className="size-4" />
             )}
           </span>
-          {isEditing ? (
+          {isCreating || isEditing ? (
             <input
               ref={inputRef}
               value={draftName}
@@ -164,6 +175,11 @@ export function SidebarFolderItem({
                 if (event.key === "Escape") {
                   event.preventDefault();
                   setDraftName(label);
+                  if (isCreating) {
+                    void onCancelCreate?.();
+                    return;
+                  }
+
                   onCancelRename?.();
                 }
               }}
