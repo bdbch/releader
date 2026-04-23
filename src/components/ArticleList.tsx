@@ -22,6 +22,7 @@ type ArticleListProps = {
   showThumbnails?: boolean;
   selectedItemIds?: string[];
   onItemClick?: (event: MouseEvent<HTMLElement>, item: ArticleListItem) => void;
+  onItemDoubleClick?: (item: ArticleListItem) => void;
   selectionActions?: ReactNode;
   onClearSelection?: () => void;
   getItemContextMenuItems?: (item: ArticleListItem) => NativeContextMenuItem[];
@@ -33,6 +34,7 @@ export function ArticleList({
   showThumbnails = true,
   selectedItemIds = [],
   onItemClick,
+  onItemDoubleClick,
   selectionActions,
   onClearSelection,
   getItemContextMenuItems,
@@ -68,6 +70,7 @@ export function ArticleList({
             showThumbnails={showThumbnails}
             isSelected={selectedItemIdSet.has(item.id)}
             onItemClick={onItemClick}
+            onItemDoubleClick={onItemDoubleClick}
             contextMenuItems={getItemContextMenuItems?.(item)}
           />
         ))}
@@ -82,6 +85,7 @@ function ArticleListRow({
   showThumbnails,
   isSelected,
   onItemClick,
+  onItemDoubleClick,
   contextMenuItems,
 }: {
   item: ArticleListItem;
@@ -89,18 +93,22 @@ function ArticleListRow({
   showThumbnails: boolean;
   isSelected: boolean;
   onItemClick?: (event: MouseEvent<HTMLElement>, item: ArticleListItem) => void;
+  onItemDoubleClick?: (item: ArticleListItem) => void;
   contextMenuItems?: NativeContextMenuItem[];
 }) {
+  const isUnread = Boolean(item.unread);
+
   return (
     <article
       aria-selected={isSelected}
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_120px_88px] gap-3 border-b px-6 transition-colors",
+        "grid grid-cols-[18px_minmax(0,1fr)_120px_88px] gap-3 border-b px-6 transition-colors",
         rowClassName[density],
         onItemClick ? "cursor-default hover:bg-interactive-hover" : "",
         isSelected ? "bg-interactive-active hover:bg-interactive-hover" : "",
       )}
       onClick={onItemClick ? (event) => onItemClick(event, item) : undefined}
+      onDoubleClick={onItemDoubleClick ? () => onItemDoubleClick(item) : undefined}
       onContextMenu={
         contextMenuItems?.length
           ? (event) => {
@@ -109,7 +117,18 @@ function ArticleListRow({
           : undefined
       }
     >
-      <div className="flex min-w-0 items-start gap-3">
+      <div className="flex items-start justify-center pt-1.5">
+        {isUnread ? (
+          <span
+            className="mt-0.5 size-2 shrink-0 rounded-full bg-danger"
+            aria-label="Unread article"
+          />
+        ) : (
+          <span className="size-2 shrink-0 rounded-full bg-transparent" aria-hidden="true" />
+        )}
+      </div>
+
+      <div className={cn("flex min-w-0 items-start gap-3", !isUnread && !isSelected ? "opacity-62" : "")}>
         {showThumbnails ? (
           <ArticleThumbnail
             thumbnailUrl={item.thumbnailUrl}
@@ -119,11 +138,6 @@ function ArticleListRow({
         ) : null}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            {item.unread ? (
-              <span className="size-2 shrink-0 rounded-full bg-foreground" />
-            ) : (
-              <span className="size-2 shrink-0 rounded-full bg-transparent" />
-            )}
             <h2 className="truncate text-sm font-medium text-foreground">{item.title}</h2>
             {item.starred ? (
               <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
@@ -141,8 +155,12 @@ function ArticleListRow({
           </p>
         </div>
       </div>
-      <div className="truncate pt-0.5 text-sm text-muted-foreground">{item.feed}</div>
-      <div className="pt-0.5 text-right text-sm text-muted-foreground">{item.publishedAt}</div>
+      <div className={cn("truncate pt-0.5 text-sm text-muted-foreground", !isUnread && !isSelected ? "opacity-62" : "")}>
+        {item.feed}
+      </div>
+      <div className={cn("pt-0.5 text-right text-sm text-muted-foreground", !isUnread && !isSelected ? "opacity-62" : "")}>
+        {item.publishedAt}
+      </div>
     </article>
   );
 }
