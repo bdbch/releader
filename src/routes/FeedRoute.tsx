@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { RefreshCwIcon, RssIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { ArticleList, type ArticleListItem } from "@/components/ArticleList";
@@ -12,6 +12,7 @@ import { emptyFeedState, useArticleStore } from "@/stores/articleStore";
 import { useUserOptions } from "@/stores/userOptionsStore";
 
 export function FeedRoute() {
+  const autoRefreshFeedIdRef = useRef<string | null>(null);
   const feedId = useRoutes((state) => String(state.routeParams.feedId ?? ""));
   const feed = useSidebarStore((state) =>
     state.feeds.find((item) => item.id === feedId),
@@ -33,6 +34,33 @@ export function FeedRoute() {
 
     void loadFeedArticles(feedId, true);
   }, [feedId, loadFeedArticles]);
+
+  useEffect(() => {
+    autoRefreshFeedIdRef.current = null;
+  }, [feedId]);
+
+  useEffect(() => {
+    if (!feedId || !feed || isMissingFeed || resolvedFeedView.isRefreshing) {
+      return;
+    }
+
+    if (autoRefreshFeedIdRef.current === feedId) {
+      return;
+    }
+
+    if (wasFetchedWithinLastTwoMinutes(feed.lastFetchedAt)) {
+      return;
+    }
+
+    autoRefreshFeedIdRef.current = feedId;
+    void refreshFeed(feedId);
+  }, [
+    feed,
+    feedId,
+    isMissingFeed,
+    refreshFeed,
+    resolvedFeedView.isRefreshing,
+  ]);
 
   useEffect(() => {
     if (!feedId) {
@@ -150,6 +178,19 @@ export function FeedRoute() {
       )}
     </RouteLayout>
   );
+}
+
+function wasFetchedWithinLastTwoMinutes(value: string | null) {
+  if (!value) {
+    return false;
+  }
+
+  const fetchedAt = new Date(value);
+  if (Number.isNaN(fetchedAt.getTime())) {
+    return false;
+  }
+
+  return Date.now() - fetchedAt.getTime() < 2 * 60 * 1000;
 }
 
 function formatPublishedAt(value: string | null) {
