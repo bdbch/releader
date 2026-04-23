@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { listFeedArticles, refetchFeed } from "@/lib/articleApi";
+import { deleteArticles, listFeedArticles, refetchFeed, updateArticlesReadState } from "@/lib/articleApi";
 import type { ArticleCursor, ArticleRecord } from "@/types/article";
 
 type FeedArticleState = {
@@ -14,6 +14,8 @@ type ArticleStoreState = {
   feedViews: Record<string, FeedArticleState>;
   loadFeedArticles: (feedId: string, reset?: boolean) => Promise<void>;
   refreshFeed: (feedId: string) => Promise<void>;
+  markArticlesReadState: (articleIds: string[], isRead: boolean) => Promise<void>;
+  deleteArticlesById: (articleIds: string[]) => Promise<void>;
 };
 
 export const emptyFeedState: FeedArticleState = {
@@ -119,5 +121,45 @@ export const useArticleStore = create<ArticleStoreState>((set, get) => ({
         },
       }));
     }
+  },
+  markArticlesReadState: async (articleIds, isRead) => {
+    if (articleIds.length === 0) {
+      return;
+    }
+
+    await updateArticlesReadState(articleIds, isRead);
+
+    set((state) => ({
+      feedViews: Object.fromEntries(
+        Object.entries(state.feedViews).map(([feedId, view]) => [
+          feedId,
+          {
+            ...view,
+            items: view.items.map((item) =>
+              articleIds.includes(item.id) ? { ...item, isRead } : item,
+            ),
+          },
+        ]),
+      ),
+    }));
+  },
+  deleteArticlesById: async (articleIds) => {
+    if (articleIds.length === 0) {
+      return;
+    }
+
+    await deleteArticles(articleIds);
+
+    set((state) => ({
+      feedViews: Object.fromEntries(
+        Object.entries(state.feedViews).map(([feedId, view]) => [
+          feedId,
+          {
+            ...view,
+            items: view.items.filter((item) => !articleIds.includes(item.id)),
+          },
+        ]),
+      ),
+    }));
   },
 }));

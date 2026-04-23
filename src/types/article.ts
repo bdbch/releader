@@ -30,3 +30,12 @@ export type RefetchFeedResult = {
   insertedCount: number;
   updatedCount: number;
 };
+
+export type UpdateArticlesReadStateResult = {
+  articleIds: string[];
+  isRead: boolean;
+};
+
+export type DeleteArticlesResult = {
+  articleIds: string[];
+};

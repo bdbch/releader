@@ -2,6 +2,7 @@ import type { MouseEvent, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { ArticleListDensity } from "@/components/ViewSelect";
 import { Button } from "@/components/ui/Button";
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/ContextMenu";
 
 export type ArticleListItem = {
   id: string;
@@ -22,6 +23,7 @@ type ArticleListProps = {
   onItemClick?: (event: MouseEvent<HTMLElement>, item: ArticleListItem) => void;
   selectionActions?: ReactNode;
   onClearSelection?: () => void;
+  renderItemContextMenu?: (item: ArticleListItem) => ReactNode;
 };
 
 export function ArticleList({
@@ -32,13 +34,14 @@ export function ArticleList({
   onItemClick,
   selectionActions,
   onClearSelection,
+  renderItemContextMenu,
 }: ArticleListProps) {
   const selectedItemIdSet = new Set(selectedItemIds);
-  const hasSelection = selectedItemIds.length > 0;
+  const hasMultiSelection = selectedItemIds.length > 1;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {hasSelection && selectedItemIds.length > 1 ? (
+      {hasMultiSelection ? (
         <div className="flex items-center justify-between gap-3 border-b bg-surface-subtle px-6 py-1">
           <div className="flex items-center gap-3">
             <span className="text-[13px] font-medium text-foreground">
@@ -57,65 +60,93 @@ export function ArticleList({
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto">
         {items.map((item) => (
-          <article
+          <ArticleListRow
             key={item.id}
-            aria-selected={selectedItemIdSet.has(item.id)}
-            className={cn(
-              "grid grid-cols-[minmax(0,1fr)_120px_88px] gap-3 border-b px-6 transition-colors",
-              rowClassName[density],
-              onItemClick ? "cursor-default hover:bg-interactive-hover" : "",
-              selectedItemIdSet.has(item.id)
-                ? "bg-interactive-active hover:bg-interactive-hover"
-                : "",
-            )}
-            onClick={
-              onItemClick ? (event) => onItemClick(event, item) : undefined
-            }
-          >
-            <div className="flex min-w-0 items-start gap-3">
-              {showThumbnails ? (
-                <ArticleThumbnail
-                  thumbnailUrl={item.thumbnailUrl}
-                  density={density}
-                  title={item.title}
-                />
-              ) : null}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  {item.unread ? (
-                    <span className="size-2 shrink-0 rounded-full bg-foreground" />
-                  ) : (
-                    <span className="size-2 shrink-0 rounded-full bg-transparent" />
-                  )}
-                  <h2 className="truncate text-sm font-medium text-foreground">
-                    {item.title}
-                  </h2>
-                  {item.starred ? (
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                      Saved
-                    </span>
-                  ) : null}
-                </div>
-                <p
-                  className={cn(
-                    "mt-1 text-sm leading-5 text-muted-foreground",
-                    summaryClampClassName[density],
-                  )}
-                >
-                  {item.summary}
-                </p>
-              </div>
-            </div>
-            <div className="truncate pt-0.5 text-sm text-muted-foreground">
-              {item.feed}
-            </div>
-            <div className="pt-0.5 text-right text-sm text-muted-foreground">
-              {item.publishedAt}
-            </div>
-          </article>
+            item={item}
+            density={density}
+            showThumbnails={showThumbnails}
+            isSelected={selectedItemIdSet.has(item.id)}
+            onItemClick={onItemClick}
+            contextMenuContent={renderItemContextMenu?.(item)}
+          />
         ))}
       </div>
     </div>
+  );
+}
+
+function ArticleListRow({
+  item,
+  density,
+  showThumbnails,
+  isSelected,
+  onItemClick,
+  contextMenuContent,
+}: {
+  item: ArticleListItem;
+  density: ArticleListDensity;
+  showThumbnails: boolean;
+  isSelected: boolean;
+  onItemClick?: (event: MouseEvent<HTMLElement>, item: ArticleListItem) => void;
+  contextMenuContent?: ReactNode;
+}) {
+  const row = (
+    <article
+      aria-selected={isSelected}
+      className={cn(
+        "grid grid-cols-[minmax(0,1fr)_120px_88px] gap-3 border-b px-6 transition-colors",
+        rowClassName[density],
+        onItemClick ? "cursor-default hover:bg-interactive-hover" : "",
+        isSelected ? "bg-interactive-active hover:bg-interactive-hover" : "",
+      )}
+      onClick={onItemClick ? (event) => onItemClick(event, item) : undefined}
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        {showThumbnails ? (
+          <ArticleThumbnail
+            thumbnailUrl={item.thumbnailUrl}
+            density={density}
+            title={item.title}
+          />
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {item.unread ? (
+              <span className="size-2 shrink-0 rounded-full bg-foreground" />
+            ) : (
+              <span className="size-2 shrink-0 rounded-full bg-transparent" />
+            )}
+            <h2 className="truncate text-sm font-medium text-foreground">{item.title}</h2>
+            {item.starred ? (
+              <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                Saved
+              </span>
+            ) : null}
+          </div>
+          <p
+            className={cn(
+              "mt-1 text-sm leading-5 text-muted-foreground",
+              summaryClampClassName[density],
+            )}
+          >
+            {item.summary}
+          </p>
+        </div>
+      </div>
+      <div className="truncate pt-0.5 text-sm text-muted-foreground">{item.feed}</div>
+      <div className="pt-0.5 text-right text-sm text-muted-foreground">{item.publishedAt}</div>
+    </article>
+  );
+
+  if (!contextMenuContent) {
+    return row;
+  }
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+      <ContextMenuContent>{contextMenuContent}</ContextMenuContent>
+    </ContextMenu>
   );
 }
 

@@ -29,9 +29,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border text-[13px] font-medium outline-none transition-colors",
-        "disabled:pointer-events-none disabled:opacity-50",
-        "focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring",
+        "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[10px] border text-[13px] font-medium outline-none transition-colors",
+        "disabled:pointer-events-none disabled:opacity-45",
+        "focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-focus-ring active:translate-y-px",
         buttonVariantClassName[variant],
         buttonSizeClassName[size],
         className ?? "",
@@ -47,16 +47,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
 const buttonVariantClassName: Record<ButtonVariant, string> = {
   default:
-    "border-transparent bg-accent text-accent-foreground shadow-sm hover:opacity-95",
+    "border-border-strong bg-content text-accent-foreground hover:bg-black/88 active:border-black/55 active:bg-black/82",
   secondary:
-    "border-border-subtle bg-surface-raised text-content hover:bg-interactive-hover",
-  ghost: "border-transparent bg-transparent text-content-muted hover:bg-interactive-hover hover:text-content",
+    "border-border-subtle bg-surface text-content hover:border-border-strong hover:bg-surface-subtle active:bg-interactive-active",
+  ghost:
+    "border-transparent bg-transparent text-content-muted hover:bg-interactive-hover hover:text-content active:bg-interactive-active",
   destructive:
-    "border-transparent bg-danger text-danger-foreground shadow-sm hover:opacity-95",
+    "border-[#d8b7b3] bg-[#f8ecea] text-[#8f312b] hover:border-[#cda49f] hover:bg-[#f4e1de] active:bg-[#edd2cd]",
 };
 
 const buttonSizeClassName: Record<ButtonSize, string> = {
-  sm: "h-7.5 px-2.5",
-  md: "h-8.5 px-3",
-  icon: "size-8",
+  sm: "h-7 px-2.5",
+  md: "h-8 px-3",
+  icon: "size-7.5",
 };

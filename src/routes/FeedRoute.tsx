@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
-import { RefreshCwIcon, RssIcon } from "lucide-react";
+import { RefreshCwIcon, RssIcon, Trash2Icon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { ArticleList, type ArticleListItem } from "@/components/ArticleList";
+import { ContextMenuItem } from "@/components/ui/ContextMenu";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { ViewSelect } from "@/components/ViewSelect";
@@ -25,6 +26,8 @@ export function FeedRoute() {
   const feedView = useArticleStore((state) => state.feedViews[feedId]);
   const loadFeedArticles = useArticleStore((state) => state.loadFeedArticles);
   const refreshFeed = useArticleStore((state) => state.refreshFeed);
+  const markArticlesReadState = useArticleStore((state) => state.markArticlesReadState);
+  const deleteArticlesById = useArticleStore((state) => state.deleteArticlesById);
   const resolvedFeedView = feedView ?? emptyFeedState;
   const isMissingFeed = feed?.lastFetchStatus === "not_found";
 
@@ -137,6 +140,30 @@ export function FeedRoute() {
     setCurrentRoute(ROUTE.DASHBOARD);
   }
 
+  async function handleMarkSelectionAsReadState(isRead: boolean) {
+    await markArticlesReadState(selectedItemIds, isRead);
+    clearSelection();
+  }
+
+  async function handleDeleteSelection() {
+    await deleteArticlesById(selectedItemIds);
+    clearSelection();
+  }
+
+  function getContextActionArticleIds(articleId: string) {
+    return Array.from(new Set([...selectedItemIds, articleId]));
+  }
+
+  async function handleMarkItemReadState(articleId: string, isRead: boolean) {
+    await markArticlesReadState(getContextActionArticleIds(articleId), isRead);
+    clearSelection();
+  }
+
+  async function handleDeleteItem(articleId: string) {
+    await deleteArticlesById(getContextActionArticleIds(articleId));
+    clearSelection();
+  }
+
   return (
     <RouteLayout
       title={feed?.title ?? "Feed"}
@@ -185,7 +212,46 @@ export function FeedRoute() {
           showThumbnails={view.showThumbnails}
           selectedItemIds={selectedItemIds}
           onItemClick={(event, item) => handleItemClick(event, item.id)}
+          selectionActions={
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleMarkSelectionAsReadState(true)}
+              >
+                Mark as read
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleMarkSelectionAsReadState(false)}
+              >
+                Mark as unread
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                iconLeft={<Trash2Icon className="size-3.5" />}
+                onClick={() => void handleDeleteSelection()}
+              >
+                Delete
+              </Button>
+            </>
+          }
           onClearSelection={clearSelection}
+          renderItemContextMenu={(item) => (
+            <>
+              <ContextMenuItem onSelect={() => void handleMarkItemReadState(item.id, true)}>
+                Mark as read
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => void handleMarkItemReadState(item.id, false)}>
+                Mark as unread
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => void handleDeleteItem(item.id)}>
+                Delete
+              </ContextMenuItem>
+            </>
+          )}
         />
       )}
     </RouteLayout>

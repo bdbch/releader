@@ -1,5 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ArticleCursor, ArticlePage, RefetchFeedResult } from "@/types/article";
+import type {
+  ArticleCursor,
+  ArticlePage,
+  DeleteArticlesResult,
+  RefetchFeedResult,
+  UpdateArticlesReadStateResult,
+} from "@/types/article";
 
 export async function listFeedArticles({
   feedId,
@@ -22,4 +28,15 @@ export async function listFeedArticles({
 
 export async function refetchFeed(feedId: string) {
   return invoke<RefetchFeedResult>("refetch_feed", { feedId });
+}
+
+export async function updateArticlesReadState(articleIds: string[], isRead: boolean) {
+  return invoke<UpdateArticlesReadStateResult>("update_articles_read_state", {
+    articleIds,
+    isRead,
+  });
+}
+
+export async function deleteArticles(articleIds: string[]) {
+  return invoke<DeleteArticlesResult>("delete_articles", { articleIds });
 }
