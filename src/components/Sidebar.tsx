@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import type { DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
+import type { DragEndEvent, DragMoveEvent, DragStartEvent } from "@dnd-kit/core";
 import {
   DndContext,
+  DragOverlay,
   MouseSensor,
   closestCenter,
   useSensor,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { Button } from "@/components/ui/Button";
 import { SidebarDropZone } from "./SidebarDropZone";
+import { SidebarDragPreview } from "./SidebarDragPreview";
 import { SidebarFeedItem } from "./SidebarFeedItem";
 import { SidebarFolderItem } from "./SidebarFolderItem";
 import { SidebarButton } from "./SidebarButton";
@@ -63,6 +65,7 @@ export function Sidebar() {
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [creatingFeedId, setCreatingFeedId] = useState<string | null>(null);
   const [editingFeedId, setEditingFeedId] = useState<string | null>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [pendingDeleteFolderId, setPendingDeleteFolderId] = useState<string | null>(
     null,
   );
@@ -88,6 +91,14 @@ export function Sidebar() {
     }),
   );
   const sortableIds = useMemo(() => flattenNodeIds(tree), [tree]);
+  const activeDragItem = useMemo(
+    () => (activeDragId ? getSidebarDragItem(tree, feeds, activeDragId) : null),
+    [activeDragId, feeds, tree],
+  );
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveDragId(String(event.active.id));
+  }
 
   function handleDragMove(event: DragMoveEvent) {
     const overId = event.over ? String(event.over.id) : null;
@@ -115,6 +126,7 @@ export function Sidebar() {
 
     if (!overId || activeId === overId) {
       setActiveDropFolderId(null);
+      setActiveDragId(null);
       return;
     }
 
@@ -129,6 +141,7 @@ export function Sidebar() {
 
     if (!target) {
       setActiveDropFolderId(null);
+      setActiveDragId(null);
       return;
     }
 
@@ -143,11 +156,13 @@ export function Sidebar() {
 
     if (nextState.folders === folders && nextState.feeds === feeds) {
       setActiveDropFolderId(null);
+      setActiveDragId(null);
       return;
     }
 
     setSidebarStructure(nextState.folders, nextState.feeds);
     setActiveDropFolderId(null);
+    setActiveDragId(null);
     void persistSidebarStructure();
   }
 
@@ -309,9 +324,13 @@ export function Sidebar() {
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
-          onDragCancel={() => setActiveDropFolderId(null)}
+          onDragCancel={() => {
+            setActiveDropFolderId(null);
+            setActiveDragId(null);
+          }}
         >
           <SortableContext
             items={sortableIds}
@@ -347,6 +366,15 @@ export function Sidebar() {
               onCancelCreateFeed={handleCancelCreateFeed}
             />
           </SortableContext>
+          <DragOverlay>
+            {activeDragItem ? (
+              <SidebarDragPreview
+                type={activeDragItem.type}
+                label={activeDragItem.label}
+                iconUrl={activeDragItem.iconUrl}
+              />
+            ) : null}
+          </DragOverlay>
         </DndContext>
       </div>
 
@@ -577,6 +605,39 @@ function getDescendantFolderIds(
     childFolderId,
     ...getDescendantFolderIds(folders, childFolderId),
   ]);
+}
+
+function getSidebarDragItem(
+  nodes: SidebarNode[],
+  feeds: Array<{ id: string; iconUrl: string | null }>,
+  id: string,
+): { type: "folder" | "feed"; label: string; iconUrl?: string | null } | null {
+  for (const node of nodes) {
+    if (node.id === id) {
+      if (node.type === "folder") {
+        return {
+          type: "folder",
+          label: node.name,
+        };
+      }
+
+      return {
+        type: "feed",
+        label: node.title,
+        iconUrl: feeds.find((feed) => feed.id === node.id)?.iconUrl ?? null,
+      };
+    }
+
+    if (node.type === "folder") {
+      const nestedMatch = getSidebarDragItem(node.children, feeds, id);
+
+      if (nestedMatch) {
+        return nestedMatch;
+      }
+    }
+  }
+
+  return null;
 }
 
 function buildContextDropZoneId(contextId: string | null, index: number) {
