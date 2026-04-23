@@ -1,12 +1,7 @@
-import { FolderPlusIcon, RssIcon, TextCursorInputIcon, TrashIcon } from "lucide-react";
+import { RssIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/ContextMenu";
 import { cn } from "@/lib/cn";
+import { showNativeContextMenu } from "@/lib/nativeContextMenu";
 import { useSortable } from "@dnd-kit/sortable";
 
 type SidebarFeedItemProps = {
@@ -82,100 +77,94 @@ export function SidebarFeedItem({
   }
 
   const resolvedIconUrl = iconUrl ?? null;
+  const contextMenuItems = [
+    {
+      id: `${id}:rename`,
+      text: "Rename feed",
+      onSelect: onContextMenuRename,
+    },
+    {
+      id: `${id}:move-into-folder`,
+      text: "Move into new folder",
+      onSelect: onContextMenuMoveIntoNewFolder,
+    },
+    {
+      type: "separator" as const,
+    },
+    {
+      id: `${id}:delete`,
+      text: "Delete feed",
+      onSelect: onContextMenuDelete,
+    },
+  ];
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <button
-          type="button"
-          ref={setNodeRef}
-          className={cn(
-            baseRowClassName,
-            isActive ? activeRowClassName : hoverRowClassName,
-            isDragging ? "opacity-60" : "",
-          )}
-          style={{ paddingLeft: 10 + depth * 13 }}
-          {...(isCreating || isEditing ? {} : attributes)}
-          {...(isCreating || isEditing ? {} : listeners)}
-          onClick={onClick}
-          onDoubleClick={onDoubleClick}
-        >
-          <span className="-ml-0.5 flex h-4 w-3 shrink-0" aria-hidden="true" />
-          <span className="flex size-4 items-center justify-center text-content-subtle">
-            {resolvedIconUrl ? (
-              <img
-                src={resolvedIconUrl}
-                alt=""
-                className="size-3 rounded-sm object-contain"
-              />
-            ) : (
-              <RssIcon className="size-3" />
-            )}
-          </span>
-          {isCreating || isEditing ? (
-            <input
-              ref={inputRef}
-              value={inputValue}
-              onChange={(event) => setInputValue(event.target.value)}
-              onClick={(event) => event.stopPropagation()}
-              onBlur={() => void handleSubmit()}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void handleSubmit();
-                }
+    <button
+      type="button"
+      ref={setNodeRef}
+      className={cn(
+        baseRowClassName,
+        isActive ? activeRowClassName : hoverRowClassName,
+        isDragging ? "opacity-60" : "",
+      )}
+      style={{ paddingLeft: 10 + depth * 13 }}
+      {...(isCreating || isEditing ? {} : attributes)}
+      {...(isCreating || isEditing ? {} : listeners)}
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      onContextMenu={
+        isCreating || isEditing
+          ? undefined
+          : (event) => {
+              void showNativeContextMenu(event, contextMenuItems);
+            }
+      }
+    >
+      <span className="-ml-0.5 flex h-4 w-3 shrink-0" aria-hidden="true" />
+      <span className="flex size-4 items-center justify-center text-content-subtle">
+        {resolvedIconUrl ? (
+          <img
+            src={resolvedIconUrl}
+            alt=""
+            className="size-3 rounded-sm object-contain"
+          />
+        ) : (
+          <RssIcon className="size-3" />
+        )}
+      </span>
+      {isCreating || isEditing ? (
+        <input
+          ref={inputRef}
+          value={inputValue}
+          onChange={(event) => setInputValue(event.target.value)}
+          onClick={(event) => event.stopPropagation()}
+          onBlur={() => void handleSubmit()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void handleSubmit();
+            }
 
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  setInputValue(isEditing ? label : "");
-                  if (isCreating) {
-                    void onCancelCreate?.();
-                    return;
-                  }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setInputValue(isEditing ? label : "");
+              if (isCreating) {
+                void onCancelCreate?.();
+                return;
+              }
 
-                  if (isEditing) {
-                    void onCancelRename?.();
-                  }
-                }
-              }}
-              placeholder={isCreating ? "Paste feed URL" : "Feed title"}
-              className="h-5 min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-1.5 text-xs text-content outline-none placeholder:text-content-subtle"
-            />
-          ) : (
-            <span className="truncate">{label}</span>
-          )}
-        </button>
-      </ContextMenuTrigger>
-      {!isCreating && !isEditing ? (
-        <ContextMenuContent>
-          <ContextMenuItem
-            onSelect={() => {
-              window.setTimeout(() => onContextMenuRename?.(), 0);
-            }}
-          >
-            <TextCursorInputIcon className="mr-2 size-3.5" />
-            Rename feed
-          </ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() => {
-              window.setTimeout(() => onContextMenuMoveIntoNewFolder?.(), 0);
-            }}
-          >
-            <FolderPlusIcon className="mr-2 size-3.5" />
-            Move into new folder
-          </ContextMenuItem>
-          <ContextMenuItem
-            className="text-danger data-[highlighted]:bg-danger/10 data-[highlighted]:text-danger"
-            onSelect={() => {
-              window.setTimeout(() => onContextMenuDelete?.(), 0);
-            }}
-          >
-            <TrashIcon className="mr-2 size-3.5" />
-            Delete feed
-          </ContextMenuItem>
-        </ContextMenuContent>
-      ) : null}
-    </ContextMenu>
+              if (isEditing) {
+                void onCancelRename?.();
+              }
+            }
+          }}
+          placeholder={isCreating ? "Paste feed URL" : "Feed title"}
+          className="h-5 min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-1.5 text-xs text-content outline-none placeholder:text-content-subtle"
+        />
+      ) : (
+        <span className="truncate">{label}</span>
+      )}
+    </button>
   );
 }
 

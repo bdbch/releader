@@ -42,6 +42,10 @@
     --color-foreground: var(--color-content);
     --color-muted-foreground: var(--color-content-muted);
     --color-border: var(--color-border-subtle);
+    --scrollbar-thumb: rgb(122 122 116 / 0.45);
+    --scrollbar-thumb-hover: rgb(104 104 98 / 0.62);
+    --scrollbar-track: transparent;
+    --scrollbar-size: 10px;
 
     --spacing-titlebar: 2.5rem;
 }
@@ -54,6 +58,24 @@
 
 :root {
     @apply bg-canvas text-content font-sans;
+}
+
+:root[data-platform="windows"][data-window-effect="mica"] {
+    --color-canvas: rgb(247 247 245 / 0.74);
+    --color-surface: rgb(255 255 255 / 0.68);
+    --color-surface-muted: rgb(241 241 238 / 0.76);
+    --color-surface-subtle: rgb(247 247 244 / 0.64);
+    --color-surface-raised: rgb(252 252 251 / 0.78);
+    --color-surface-overlay: rgb(255 255 255 / 0.9);
+    --scrollbar-thumb: rgb(108 108 102 / 0.42);
+    --scrollbar-thumb-hover: rgb(88 88 83 / 0.58);
+    --scrollbar-size: 11px;
+}
+
+:root[data-platform="linux"] {
+    --scrollbar-thumb: rgb(118 118 112 / 0.5);
+    --scrollbar-thumb-hover: rgb(97 97 92 / 0.64);
+    --scrollbar-size: 11px;
 }
 
 .theme-dark,
@@ -91,6 +113,8 @@
     --color-interactive-hover: #262622;
     --color-interactive-active: #2d2d28;
     --color-focus-ring: rgb(241 241 234 / 0.12);
+    --scrollbar-thumb: rgb(133 133 126 / 0.42);
+    --scrollbar-thumb-hover: rgb(165 165 157 / 0.58);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -131,6 +155,28 @@
     }
 }
 
+:root[data-platform="windows"][data-window-effect="mica"][data-theme="dark"] {
+    --color-canvas: rgb(20 20 18 / 0.78);
+    --color-surface: rgb(26 26 24 / 0.7);
+    --color-surface-muted: rgb(32 32 29 / 0.8);
+    --color-surface-subtle: rgb(36 36 32 / 0.66);
+    --color-surface-raised: rgb(42 42 38 / 0.8);
+    --color-surface-overlay: rgb(32 32 29 / 0.92);
+    --scrollbar-thumb: rgb(151 151 144 / 0.38);
+    --scrollbar-thumb-hover: rgb(189 189 181 / 0.54);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-platform="windows"][data-window-effect="mica"]:not([data-theme="light"]) {
+        --color-canvas: rgb(20 20 18 / 0.78);
+        --color-surface: rgb(26 26 24 / 0.7);
+        --color-surface-muted: rgb(32 32 29 / 0.8);
+        --color-surface-subtle: rgb(36 36 32 / 0.66);
+        --color-surface-raised: rgb(42 42 38 / 0.8);
+        --color-surface-overlay: rgb(32 32 29 / 0.92);
+    }
+}
+
 html,
 body,
 #root {
@@ -140,4 +186,78 @@ body,
 
 body {
     margin: 0;
+}
+
+.app-shell {
+    isolation: isolate;
+}
+
+.app-panel-blur {
+    position: relative;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .app-panel-blur {
+        -webkit-backdrop-filter: saturate(1.2) blur(18px);
+        backdrop-filter: saturate(1.2) blur(18px);
+    }
+
+    :root[data-platform="windows"][data-window-effect="mica"] .app-panel-blur {
+        -webkit-backdrop-filter: saturate(1.28) blur(26px);
+        backdrop-filter: saturate(1.28) blur(26px);
+    }
+
+    :root[data-theme="dark"] .app-panel-blur,
+    .theme-dark .app-panel-blur {
+        -webkit-backdrop-filter: saturate(1.16) blur(22px);
+        backdrop-filter: saturate(1.16) blur(22px);
+    }
+
+    :root[data-platform="windows"][data-window-effect="mica"][data-theme="dark"] .app-panel-blur {
+        -webkit-backdrop-filter: saturate(1.22) blur(30px);
+        backdrop-filter: saturate(1.22) blur(30px);
+    }
+}
+
+:root[data-platform="windows"],
+:root[data-platform="linux"] {
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    scrollbar-width: thin;
+}
+
+:root[data-platform="windows"] *,
+:root[data-platform="linux"] * {
+    scrollbar-color: inherit;
+    scrollbar-width: inherit;
+}
+
+:root[data-platform="windows"] *::-webkit-scrollbar,
+:root[data-platform="linux"] *::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+}
+
+:root[data-platform="windows"] *::-webkit-scrollbar-track,
+:root[data-platform="linux"] *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+:root[data-platform="windows"] *::-webkit-scrollbar-thumb,
+:root[data-platform="linux"] *::-webkit-scrollbar-thumb {
+    min-height: 28px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--scrollbar-thumb);
+    background-clip: padding-box;
+}
+
+:root[data-platform="windows"] *::-webkit-scrollbar-thumb:hover,
+:root[data-platform="linux"] *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    background-clip: padding-box;
+}
+
+:root[data-platform="windows"] *::-webkit-scrollbar-corner,
+:root[data-platform="linux"] *::-webkit-scrollbar-corner {
+    background: transparent;
 }

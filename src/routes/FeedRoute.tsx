@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef } from "react";
 import { RefreshCwIcon, RssIcon, Trash2Icon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { ArticleList, type ArticleListItem } from "@/components/ArticleList";
-import { ContextMenuItem } from "@/components/ui/ContextMenu";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { ViewSelect } from "@/components/ViewSelect";
@@ -12,6 +11,7 @@ import { ROUTE, useRoutes } from "@/stores/routeStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { emptyFeedState, useArticleStore } from "@/stores/articleStore";
 import { useUserOptions } from "@/stores/userOptionsStore";
+import type { NativeContextMenuItem } from "@/lib/nativeContextMenu";
 
 export function FeedRoute() {
   const autoRefreshFeedIdRef = useRef<string | null>(null);
@@ -239,19 +239,26 @@ export function FeedRoute() {
             </>
           }
           onClearSelection={clearSelection}
-          renderItemContextMenu={(item) => (
-            <>
-              <ContextMenuItem onSelect={() => void handleMarkItemReadState(item.id, true)}>
-                Mark as read
-              </ContextMenuItem>
-              <ContextMenuItem onSelect={() => void handleMarkItemReadState(item.id, false)}>
-                Mark as unread
-              </ContextMenuItem>
-              <ContextMenuItem onSelect={() => void handleDeleteItem(item.id)}>
-                Delete
-              </ContextMenuItem>
-            </>
-          )}
+          getItemContextMenuItems={(item): NativeContextMenuItem[] => [
+            {
+              id: `${item.id}:mark-read`,
+              text: "Mark as read",
+              onSelect: () => handleMarkItemReadState(item.id, true),
+            },
+            {
+              id: `${item.id}:mark-unread`,
+              text: "Mark as unread",
+              onSelect: () => handleMarkItemReadState(item.id, false),
+            },
+            {
+              type: "separator",
+            },
+            {
+              id: `${item.id}:delete`,
+              text: "Delete",
+              onSelect: () => handleDeleteItem(item.id),
+            },
+          ]}
         />
       )}
     </RouteLayout>

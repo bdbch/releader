@@ -1,8 +1,9 @@
 import type { MouseEvent, ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import type { NativeContextMenuItem } from "@/lib/nativeContextMenu";
+import { showNativeContextMenu } from "@/lib/nativeContextMenu";
 import type { ArticleListDensity } from "@/components/ViewSelect";
 import { Button } from "@/components/ui/Button";
-import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/ContextMenu";
 
 export type ArticleListItem = {
   id: string;
@@ -23,7 +24,7 @@ type ArticleListProps = {
   onItemClick?: (event: MouseEvent<HTMLElement>, item: ArticleListItem) => void;
   selectionActions?: ReactNode;
   onClearSelection?: () => void;
-  renderItemContextMenu?: (item: ArticleListItem) => ReactNode;
+  getItemContextMenuItems?: (item: ArticleListItem) => NativeContextMenuItem[];
 };
 
 export function ArticleList({
@@ -34,7 +35,7 @@ export function ArticleList({
   onItemClick,
   selectionActions,
   onClearSelection,
-  renderItemContextMenu,
+  getItemContextMenuItems,
 }: ArticleListProps) {
   const selectedItemIdSet = new Set(selectedItemIds);
   const hasMultiSelection = selectedItemIds.length > 1;
@@ -67,7 +68,7 @@ export function ArticleList({
             showThumbnails={showThumbnails}
             isSelected={selectedItemIdSet.has(item.id)}
             onItemClick={onItemClick}
-            contextMenuContent={renderItemContextMenu?.(item)}
+            contextMenuItems={getItemContextMenuItems?.(item)}
           />
         ))}
       </div>
@@ -81,16 +82,16 @@ function ArticleListRow({
   showThumbnails,
   isSelected,
   onItemClick,
-  contextMenuContent,
+  contextMenuItems,
 }: {
   item: ArticleListItem;
   density: ArticleListDensity;
   showThumbnails: boolean;
   isSelected: boolean;
   onItemClick?: (event: MouseEvent<HTMLElement>, item: ArticleListItem) => void;
-  contextMenuContent?: ReactNode;
+  contextMenuItems?: NativeContextMenuItem[];
 }) {
-  const row = (
+  return (
     <article
       aria-selected={isSelected}
       className={cn(
@@ -100,6 +101,13 @@ function ArticleListRow({
         isSelected ? "bg-interactive-active hover:bg-interactive-hover" : "",
       )}
       onClick={onItemClick ? (event) => onItemClick(event, item) : undefined}
+      onContextMenu={
+        contextMenuItems?.length
+          ? (event) => {
+              void showNativeContextMenu(event, contextMenuItems);
+            }
+          : undefined
+      }
     >
       <div className="flex min-w-0 items-start gap-3">
         {showThumbnails ? (
@@ -136,17 +144,6 @@ function ArticleListRow({
       <div className="truncate pt-0.5 text-sm text-muted-foreground">{item.feed}</div>
       <div className="pt-0.5 text-right text-sm text-muted-foreground">{item.publishedAt}</div>
     </article>
-  );
-
-  if (!contextMenuContent) {
-    return row;
-  }
-
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
-      <ContextMenuContent>{contextMenuContent}</ContextMenuContent>
-    </ContextMenu>
   );
 }
 

@@ -1,21 +1,13 @@
 import {
   ChevronDownIcon,
   ChevronRightIcon,
-  PlusIcon,
   FolderIcon,
   FolderOpenIcon,
-  TextCursorInputIcon,
-  TrashIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/ContextMenu";
 import { cn } from "@/lib/cn";
+import { showNativeContextMenu } from "@/lib/nativeContextMenu";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 
@@ -85,106 +77,103 @@ export function SidebarFolderItem({
     void onCommitRename?.(draftName);
   }
 
+  const contextMenuItems = [
+    {
+      id: `${id}:new-feed`,
+      text: "New feed",
+      onSelect: onContextMenuCreateFeed,
+    },
+    {
+      id: `${id}:rename`,
+      text: "Rename folder",
+      onSelect: onContextMenuRename,
+    },
+    {
+      type: "separator" as const,
+    },
+    {
+      id: `${id}:delete`,
+      text: "Delete folder",
+      onSelect: onContextMenuDelete,
+    },
+  ];
+
   return (
     <div ref={setDropInsideNodeRef} className="w-full">
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <button
-            type="button"
-            ref={setNodeRef}
-            className={cn(
-              baseRowClassName,
-              isActive ? activeRowClassName : hoverRowClassName,
-              isDragging ? "opacity-60" : "",
-              isOver || isDropTarget
-                ? "bg-surface-subtle ring-1 ring-border-strong"
-                : "",
+      <button
+        type="button"
+        ref={setNodeRef}
+        className={cn(
+          baseRowClassName,
+          isActive ? activeRowClassName : hoverRowClassName,
+          isDragging ? "opacity-60" : "",
+          isOver || isDropTarget
+            ? "bg-surface-subtle ring-1 ring-border-strong"
+            : "",
+        )}
+        style={{ paddingLeft: 10 + depth * 13 }}
+        {...(isEditing ? {} : attributes)}
+        {...(isEditing ? {} : listeners)}
+        onClick={onClick}
+        onDoubleClick={onToggle}
+        onContextMenu={
+          isEditing
+            ? undefined
+            : (event) => {
+                void showNativeContextMenu(event, contextMenuItems);
+              }
+        }
+      >
+        <span
+          role="button"
+          tabIndex={-1}
+          className="-ml-0.5 flex h-4 w-3 shrink-0 items-center justify-center text-content-subtle"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggle?.();
+          }}
+        >
+          {isExpanded ? (
+            <ChevronDownIcon className="size-3" />
+          ) : (
+            <ChevronRightIcon className="size-3" />
+          )}
+        </span>
+
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+          <span className="flex size-4 items-center justify-center text-content-subtle">
+            {isExpanded ? (
+              <FolderOpenIcon className="size-4" />
+            ) : (
+              <FolderIcon className="size-4" />
             )}
-            style={{ paddingLeft: 10 + depth * 13 }}
-            {...(isEditing ? {} : attributes)}
-            {...(isEditing ? {} : listeners)}
-            onClick={onClick}
-            onDoubleClick={onToggle}
-          >
-            <span
-              role="button"
-              tabIndex={-1}
-              className="-ml-0.5 flex h-4 w-3 shrink-0 items-center justify-center text-content-subtle"
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggle?.();
+          </span>
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              value={draftName}
+              onChange={(event) => setDraftName(event.target.value)}
+              onClick={(event) => event.stopPropagation()}
+              onBlur={handleCommit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleCommit();
+                }
+
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setDraftName(label);
+                  onCancelRename?.();
+                }
               }}
-            >
-              {isExpanded ? (
-                <ChevronDownIcon className="size-3" />
-              ) : (
-                <ChevronRightIcon className="size-3" />
-              )}
-            </span>
-
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-              <span className="flex size-4 items-center justify-center text-content-subtle">
-                {isExpanded ? (
-                  <FolderOpenIcon className="size-4" />
-                ) : (
-                  <FolderIcon className="size-4" />
-                )}
-              </span>
-              {isEditing ? (
-                <input
-                  ref={inputRef}
-                  value={draftName}
-                  onChange={(event) => setDraftName(event.target.value)}
-                  onClick={(event) => event.stopPropagation()}
-                  onBlur={handleCommit}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      handleCommit();
-                    }
-
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      setDraftName(label);
-                      onCancelRename?.();
-                    }
-                  }}
-                  className="h-5 min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-1.5 text-xs text-content outline-none"
-                />
-              ) : (
-                <span className="truncate">{label}</span>
-              )}
-            </span>
-          </button>
-        </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuItem
-            onSelect={() => {
-              window.setTimeout(() => onContextMenuCreateFeed?.(), 0);
-            }}
-          >
-            <PlusIcon className="mr-2 size-3.5" />
-            New feed
-          </ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() => {
-              window.setTimeout(() => onContextMenuRename?.(), 0);
-            }}
-          >
-            <TextCursorInputIcon className="mr-2 size-3.5" />
-            Rename folder
-          </ContextMenuItem>
-          <ContextMenuItem
-            className="text-danger data-[highlighted]:bg-danger/10 data-[highlighted]:text-danger"
-            onSelect={() => {
-              window.setTimeout(() => onContextMenuDelete?.(), 0);
-            }}
-          >
-            <TrashIcon className="mr-2 size-3.5" />
-            Delete folder
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
+              className="h-5 min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-1.5 text-xs text-content outline-none"
+            />
+          ) : (
+            <span className="truncate">{label}</span>
+          )}
+        </span>
+      </button>
 
       {deleteConfirmationMessage ? (
         <div className="mt-1 ml-2 rounded-[12px] border border-border-subtle bg-surface-subtle p-2.5">
