@@ -36,7 +36,7 @@ export function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        "relative flex cursor-default items-center rounded-lg px-2 py-2 text-sm text-content outline-none transition-colors",
+        "relative flex cursor-default items-center rounded-lg px-2.5 py-1.5 text-xs text-content outline-none transition-colors",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-interactive-hover",
         inset ? "pl-8" : "",
         className ?? "",
@@ -131,7 +131,10 @@ export function DropdownMenuShortcut({
 }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={cn("ml-auto text-xs tracking-wide text-content-subtle", className ?? "")}
+      className={cn(
+        "ml-auto text-xs tracking-wide text-content-subtle",
+        className ?? "",
+      )}
       {...props}
     />
   );

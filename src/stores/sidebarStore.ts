@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import {
+  createFolder,
+  deleteFolder,
   deleteFeed,
   getSidebarData,
+  renameFolder,
   resetSeededData,
   saveSidebarStructure,
 } from "@/lib/sidebarApi";
@@ -24,6 +27,9 @@ type SidebarState = {
   toggleFolderTree: (folderId: string) => void;
   setSidebarStructure: (folders: FolderRecord[], feeds: FeedRecord[]) => void;
   persistSidebarStructure: () => Promise<void>;
+  createRootFolder: () => Promise<FolderRecord>;
+  renameFolder: (folderId: string, name: string) => Promise<FolderRecord>;
+  removeFolder: (folderId: string) => Promise<void>;
   removeFeed: (feedId: string) => Promise<void>;
   resetToSeededData: () => Promise<{ foldersCount: number; feedsCount: number }>;
 };
@@ -101,6 +107,35 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
   persistSidebarStructure: async () => {
     const { folders, feeds } = get();
     await saveSidebarStructure(serializeSidebarStructure(folders, feeds));
+  },
+  createRootFolder: async () => {
+    const result = await createFolder();
+
+    set((state) => ({
+      folders: [...state.folders, result.folder].sort((a, b) => a.sortOrder - b.sortOrder),
+      expandedFolderIds: {
+        ...state.expandedFolderIds,
+        [result.folder.id]: false,
+      },
+    }));
+
+    return result.folder;
+  },
+  renameFolder: async (folderId, name) => {
+    const folder = await renameFolder(folderId, name);
+
+    set((state) => ({
+      folders: state.folders.map((item) =>
+        item.id === folder.id ? folder : item,
+      ),
+    }));
+
+    return folder;
+  },
+  removeFolder: async (folderId) => {
+    await deleteFolder(folderId);
+    set({ hasLoaded: false });
+    await get().loadSidebarData();
   },
   removeFeed: async (feedId) => {
     await deleteFeed(feedId);

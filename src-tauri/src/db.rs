@@ -136,9 +136,21 @@ pub struct DeleteFeedResult {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DeleteFolderResult {
+    pub folder_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResetSeededDataResult {
     pub folders_count: usize,
     pub feeds_count: usize,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateFolderResult {
+    pub folder: FolderRecord,
 }
 
 #[derive(Debug, Clone)]
@@ -476,6 +488,154 @@ pub fn delete_feed(db_path: &PathBuf, feed_id: &str) -> Result<DeleteFeedResult,
     Ok(DeleteFeedResult {
         feed_id: feed_id.to_string(),
     })
+}
+
+pub fn delete_folder(db_path: &PathBuf, folder_id: &str) -> Result<DeleteFolderResult, String> {
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let transaction = connection
+        .transaction()
+        .map_err(|error| format!("failed to start delete folder transaction: {error}"))?;
+    let folder_ids = load_folder_subtree_ids(&transaction, folder_id)?;
+
+    for subtree_folder_id in &folder_ids {
+        transaction
+            .execute("DELETE FROM feeds WHERE folder_id = ?1", params![subtree_folder_id])
+            .map_err(|error| format!("failed to delete folder feeds: {error}"))?;
+    }
+
+    let deleted_rows = transaction
+        .execute("DELETE FROM folders WHERE id = ?1", params![folder_id])
+        .map_err(|error| format!("failed to delete folder: {error}"))?;
+
+    if deleted_rows == 0 {
+        return Err(format!("folder not found: {folder_id}"));
+    }
+
+    transaction
+        .commit()
+        .map_err(|error| format!("failed to commit folder deletion: {error}"))?;
+
+    Ok(DeleteFolderResult {
+        folder_id: folder_id.to_string(),
+    })
+}
+
+fn load_folder_subtree_ids(connection: &Connection, folder_id: &str) -> Result<Vec<String>, String> {
+    let mut statement = connection
+        .prepare(
+            r#"
+            WITH RECURSIVE folder_tree(id) AS (
+                SELECT id
+                FROM folders
+                WHERE id = ?1
+
+                UNION ALL
+
+                SELECT folders.id
+                FROM folders
+                INNER JOIN folder_tree ON folders.parent_folder_id = folder_tree.id
+            )
+            SELECT id
+            FROM folder_tree
+            "#,
+        )
+        .map_err(|error| format!("failed to prepare folder subtree query: {error}"))?;
+
+    let folder_ids = statement
+        .query_map(params![folder_id], |row| row.get::<_, String>(0))
+        .map_err(|error| format!("failed to query folder subtree: {error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("failed to read folder subtree: {error}"))?;
+
+    if folder_ids.is_empty() {
+        return Err(format!("folder not found: {folder_id}"));
+    }
+
+    Ok(folder_ids)
+}
+
+pub fn create_folder(db_path: &PathBuf) -> Result<CreateFolderResult, String> {
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let now = Utc::now().to_rfc3339();
+    let folder_id = format!("folder-{}", Uuid::new_v4());
+    let sort_order = connection
+        .query_row(
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM folders WHERE parent_folder_id IS NULL",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| format!("failed to determine folder sort order: {error}"))?;
+
+    connection
+        .execute(
+            r#"
+            INSERT INTO folders (id, name, parent_folder_id, sort_order, created_at, updated_at)
+            VALUES (?1, ?2, NULL, ?3, ?4, ?5)
+            "#,
+            params![folder_id, "New folder", sort_order, now, now],
+        )
+        .map_err(|error| format!("failed to create folder: {error}"))?;
+
+    Ok(CreateFolderResult {
+        folder: FolderRecord {
+            id: folder_id,
+            name: "New folder".to_string(),
+            parent_folder_id: None,
+            sort_order,
+            created_at: now.clone(),
+            updated_at: now,
+        },
+    })
+}
+
+pub fn rename_folder(db_path: &PathBuf, folder_id: &str, name: &str) -> Result<FolderRecord, String> {
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let trimmed_name = name.trim();
+
+    if trimmed_name.is_empty() {
+        return Err("folder name cannot be empty".to_string());
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let updated_rows = connection
+        .execute(
+            r#"
+            UPDATE folders
+            SET name = ?1,
+                updated_at = ?2
+            WHERE id = ?3
+            "#,
+            params![trimmed_name, now, folder_id],
+        )
+        .map_err(|error| format!("failed to rename folder: {error}"))?;
+
+    if updated_rows == 0 {
+        return Err(format!("folder not found: {folder_id}"));
+    }
+
+    connection
+        .query_row(
+            r#"
+            SELECT id, name, parent_folder_id, sort_order, created_at, updated_at
+            FROM folders
+            WHERE id = ?1
+            "#,
+            params![folder_id],
+            |row| {
+                Ok(FolderRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    parent_folder_id: row.get(2)?,
+                    sort_order: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
+                })
+            },
+        )
+        .map_err(|error| format!("failed to load renamed folder: {error}"))
 }
 
 pub fn reset_seeded_data(db_path: &PathBuf) -> Result<ResetSeededDataResult, String> {

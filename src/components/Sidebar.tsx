@@ -12,11 +12,19 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { LayoutDashboardIcon, MailIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { moveSidebarNode } from "@/lib/sidebarMove";
 import { buildSidebarTree } from "@/lib/sidebarTree";
 import { ROUTE, useRoutes } from "@/stores/routeStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import type { SidebarNode } from "@/types/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
+import { Button } from "@/components/ui/Button";
 import { SidebarDropZone } from "./SidebarDropZone";
 import { SidebarFeedItem } from "./SidebarFeedItem";
 import { SidebarFolderItem } from "./SidebarFolderItem";
@@ -37,10 +45,17 @@ export function Sidebar() {
   const setSidebarStructure = useSidebarStore(
     (state) => state.setSidebarStructure,
   );
+  const createRootFolder = useSidebarStore((state) => state.createRootFolder);
+  const renameFolder = useSidebarStore((state) => state.renameFolder);
+  const removeFolder = useSidebarStore((state) => state.removeFolder);
   const persistSidebarStructure = useSidebarStore(
     (state) => state.persistSidebarStructure,
   );
   const [activeDropFolderId, setActiveDropFolderId] = useState<string | null>(
+    null,
+  );
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [pendingDeleteFolderId, setPendingDeleteFolderId] = useState<string | null>(
     null,
   );
 
@@ -118,6 +133,59 @@ export function Sidebar() {
     void persistSidebarStructure();
   }
 
+  async function handleCreateFolder() {
+    const folder = await createRootFolder();
+    setEditingFolderId(folder.id);
+  }
+
+  async function handleCommitFolderRename(folderId: string, name: string) {
+    try {
+      await renameFolder(folderId, name);
+      setEditingFolderId(null);
+    } catch {
+      setEditingFolderId(null);
+    }
+  }
+
+  async function handleDeleteFolder(folderId: string) {
+    const deletedFolderIds = [folderId, ...getDescendantFolderIds(folders, folderId)];
+    const deletedFeedIds = feeds
+      .filter((feed) => feed.folderId && deletedFolderIds.includes(feed.folderId))
+      .map((feed) => feed.id);
+
+    await removeFolder(folderId);
+    setPendingDeleteFolderId(null);
+    setEditingFolderId(null);
+
+    if (
+      currentRoute === ROUTE.FOLDER &&
+      typeof routeParams.folderId === "string" &&
+      deletedFolderIds.includes(routeParams.folderId)
+    ) {
+      setCurrentRoute(ROUTE.DASHBOARD);
+      return;
+    }
+
+    if (
+      currentRoute === ROUTE.FEED &&
+      typeof routeParams.feedId === "string" &&
+      deletedFeedIds.includes(routeParams.feedId)
+    ) {
+      setCurrentRoute(ROUTE.DASHBOARD);
+    }
+  }
+
+  const pendingDeleteFolder = pendingDeleteFolderId
+    ? folders.find((folder) => folder.id === pendingDeleteFolderId) ?? null
+    : null;
+  const pendingDeleteFolderIds = pendingDeleteFolderId
+    ? [pendingDeleteFolderId, ...getDescendantFolderIds(folders, pendingDeleteFolderId)]
+    : [];
+  const pendingDeleteFeedCount = feeds.filter(
+    (feed) => feed.folderId && pendingDeleteFolderIds.includes(feed.folderId),
+  ).length;
+  const pendingDeleteSubfolderCount = Math.max(0, pendingDeleteFolderIds.length - 1);
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-0.5">
@@ -136,8 +204,29 @@ export function Sidebar() {
       </div>
 
       <div className="flex flex-col gap-1">
-        <div className="px-2 text-[10px] font-medium uppercase tracking-[0.12em] text-content-subtle">
-          Library
+        <div className="flex items-center justify-between px-2">
+          <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-content-subtle">
+            Library
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <span>
+                <button className="p-1.5 cursor-pointer rounded-sm hover:bg-interactive-hover active:bg-interactive-active">
+                  <PlusIcon className="size-2.5" />
+                </button>
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => setCurrentRoute(ROUTE.NEW_FEED)}
+              >
+                Feed
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleCreateFolder()}>
+                Folder
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {isLoading ? (
@@ -173,10 +262,46 @@ export function Sidebar() {
                 setCurrentRoute(ROUTE.FOLDER, { folderId })
               }
               onSelectFeed={(feedId) => setCurrentRoute(ROUTE.FEED, { feedId })}
+              editingFolderId={editingFolderId}
+              onCommitFolderRename={handleCommitFolderRename}
+              onCancelFolderRename={() => setEditingFolderId(null)}
+              onStartFolderRename={(folderId) => setEditingFolderId(folderId)}
+              onRequestDeleteFolder={(folderId) => setPendingDeleteFolderId(folderId)}
             />
           </SortableContext>
         </DndContext>
       </div>
+
+      {pendingDeleteFolder ? (
+        <div className="mx-2 rounded-[12px] border border-border-subtle bg-surface-subtle p-2.5">
+          <div className="text-[12px] font-medium text-content">
+            Delete "{pendingDeleteFolder.name}"?
+          </div>
+          <div className="mt-1 text-[12px] leading-5 text-content-muted">
+            {pendingDeleteSubfolderCount > 0 || pendingDeleteFeedCount > 0
+              ? `This will permanently delete ${pendingDeleteSubfolderCount} subfolder${pendingDeleteSubfolderCount === 1 ? "" : "s"}, ${pendingDeleteFeedCount} feed${pendingDeleteFeedCount === 1 ? "" : "s"}, and all stored articles inside them.`
+              : "This folder is empty."}
+          </div>
+          <div className="mt-2.5 flex items-center justify-end gap-1.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-7 rounded-[9px] border-border-subtle bg-background px-2.5 text-[12px] font-medium text-content-muted shadow-none hover:bg-interactive-hover hover:text-content"
+              onClick={() => setPendingDeleteFolderId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-7 rounded-[9px] px-2.5 text-[12px] font-medium shadow-none"
+              onClick={() => void handleDeleteFolder(pendingDeleteFolder.id)}
+            >
+              Delete folder
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -193,6 +318,11 @@ function SidebarTreeContext({
   onToggleFolder,
   onSelectFolder,
   onSelectFeed,
+  editingFolderId,
+  onCommitFolderRename,
+  onCancelFolderRename,
+  onStartFolderRename,
+  onRequestDeleteFolder,
 }: {
   nodes: SidebarNode[];
   contextId: string | null;
@@ -205,6 +335,14 @@ function SidebarTreeContext({
   onToggleFolder: (folderId: string) => void;
   onSelectFolder: (folderId: string) => void;
   onSelectFeed: (feedId: string) => void;
+  editingFolderId: string | null;
+  onCommitFolderRename: (
+    folderId: string,
+    name: string,
+  ) => void | Promise<void>;
+  onCancelFolderRename: () => void;
+  onStartFolderRename: (folderId: string) => void;
+  onRequestDeleteFolder: (folderId: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -249,8 +387,13 @@ function SidebarTreeContext({
               isActive={isActive}
               isDropTarget={activeDropFolderId === node.id}
               dropInsideZoneId={buildFolderRowDropZoneId(node.id)}
+              isEditing={editingFolderId === node.id}
               onToggle={() => onToggleFolder(node.id)}
               onClick={(event) => {
+                if (editingFolderId === node.id) {
+                  return;
+                }
+
                 if (event.altKey) {
                   toggleFolderTree(node.id);
                   return;
@@ -258,6 +401,10 @@ function SidebarTreeContext({
 
                 onSelectFolder(node.id);
               }}
+              onContextMenuRename={() => onStartFolderRename(node.id)}
+              onContextMenuDelete={() => onRequestDeleteFolder(node.id)}
+              onCommitRename={(name) => onCommitFolderRename(node.id, name)}
+              onCancelRename={onCancelFolderRename}
             />
 
             {isExpanded ? (
@@ -273,6 +420,11 @@ function SidebarTreeContext({
                 onToggleFolder={onToggleFolder}
                 onSelectFolder={onSelectFolder}
                 onSelectFeed={onSelectFeed}
+                editingFolderId={editingFolderId}
+                onCommitFolderRename={onCommitFolderRename}
+                onCancelFolderRename={onCancelFolderRename}
+                onStartFolderRename={onStartFolderRename}
+                onRequestDeleteFolder={onRequestDeleteFolder}
               />
             ) : null}
 
@@ -293,6 +445,20 @@ function flattenNodeIds(nodes: SidebarNode[]): string[] {
       ? [node.id, ...flattenNodeIds(node.children)]
       : [node.id],
   );
+}
+
+function getDescendantFolderIds(
+  folders: Array<{ id: string; parentFolderId: string | null }>,
+  folderId: string,
+): string[] {
+  const childFolderIds = folders
+    .filter((folder) => folder.parentFolderId === folderId)
+    .map((folder) => folder.id);
+
+  return childFolderIds.flatMap((childFolderId) => [
+    childFolderId,
+    ...getDescendantFolderIds(folders, childFolderId),
+  ]);
 }
 
 function buildContextDropZoneId(contextId: string | null, index: number) {

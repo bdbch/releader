@@ -5,6 +5,7 @@ export enum ROUTE {
   UNREAD = "UNREAD",
   FOLDER = "FOLDER",
   FEED = "FEED",
+  NEW_FEED = "NEW_FEED",
 }
 
 export type RouteParams = Record<string, string | number | boolean | null>;

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "releader",
+  "productName": "Readlay",
   "version": "0.1.0",
-  "identifier": "com.releader.app",
+  "identifier": "com.readlay.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -17,7 +17,8 @@
         "maximized": true,
         "minHeight": 700,
         "minWidth": 1000,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "transparent": true
       }
     ],
     "security": {
