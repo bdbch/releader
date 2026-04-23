@@ -42,7 +42,7 @@ export const useArticleStore = create<ArticleStoreState>((set, get) => ({
           ...(state.feedViews[feedId] ?? emptyFeedState),
           isLoading: true,
           error: null,
-          ...(reset ? { items: [], nextCursor: null } : {}),
+          ...(reset ? { nextCursor: null } : {}),
         },
       },
     }));

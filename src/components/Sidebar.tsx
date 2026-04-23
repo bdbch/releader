@@ -39,7 +39,6 @@ export function Sidebar() {
   const folders = useSidebarStore((state) => state.folders);
   const feeds = useSidebarStore((state) => state.feeds);
   const expandedFolderIds = useSidebarStore((state) => state.expandedFolderIds);
-  const isLoading = useSidebarStore((state) => state.isLoading);
   const error = useSidebarStore((state) => state.error);
   const loadSidebarData = useSidebarStore((state) => state.loadSidebarData);
   const toggleFolder = useSidebarStore((state) => state.toggleFolder);
@@ -171,8 +170,24 @@ export function Sidebar() {
     setEditingFolderId(folder.id);
   }
 
-  async function handleCreateFeed() {
+  async function handleCreateFeed(folderId: string | null = null) {
     const feed = await createDraftFeed();
+
+    if (folderId) {
+      const nextFeeds = [
+        ...feeds,
+        {
+          ...feed,
+          folderId,
+          sortOrder: feeds.filter((candidate) => candidate.folderId === folderId).length,
+        },
+      ];
+
+      setSidebarStructure(folders, nextFeeds);
+      setFolderExpanded(folderId, true);
+      await persistSidebarStructure();
+    }
+
     setCreatingFeedId(feed.id);
   }
 
@@ -350,10 +365,6 @@ export function Sidebar() {
           </DropdownMenu>
         </div>
 
-        {isLoading ? (
-          <div className="px-2 text-[12px] text-content-muted">Loading…</div>
-        ) : null}
-
         {error ? (
           <div className="px-2 text-[12px] text-danger">{error}</div>
         ) : null}
@@ -388,6 +399,7 @@ export function Sidebar() {
                 setCurrentRoute(ROUTE.FOLDER, { folderId })
               }
               onSelectFeed={(feedId) => setCurrentRoute(ROUTE.FEED, { feedId })}
+              onCreateFeed={handleCreateFeed}
               editingFolderId={editingFolderId}
               creatingFeedId={creatingFeedId}
               editingFeedId={editingFeedId}
@@ -435,6 +447,7 @@ function SidebarTreeContext({
   onToggleFolder,
   onSelectFolder,
   onSelectFeed,
+  onCreateFeed,
   editingFolderId,
   creatingFeedId,
   editingFeedId,
@@ -465,6 +478,7 @@ function SidebarTreeContext({
   onToggleFolder: (folderId: string) => void;
   onSelectFolder: (folderId: string) => void;
   onSelectFeed: (feedId: string) => void;
+  onCreateFeed: (folderId?: string | null) => void | Promise<void>;
   editingFolderId: string | null;
   creatingFeedId: string | null;
   editingFeedId: string | null;
@@ -511,6 +525,11 @@ function SidebarTreeContext({
                 onClick={() => {
                   if (creatingFeedId !== node.id && editingFeedId !== node.id) {
                     onSelectFeed(node.id);
+                  }
+                }}
+                onDoubleClick={() => {
+                  if (creatingFeedId !== node.id && editingFeedId !== node.id) {
+                    onStartFeedRename(node.id);
                   }
                 }}
                 onCommitRename={(value) => onCommitFeedRename(node.id, value)}
@@ -575,6 +594,7 @@ function SidebarTreeContext({
 
                 onSelectFolder(node.id);
               }}
+              onContextMenuCreateFeed={() => void onCreateFeed(node.id)}
               onContextMenuRename={() => onStartFolderRename(node.id)}
               onContextMenuDelete={() => onRequestDeleteFolder(node.id)}
               onCommitRename={(name) => onCommitFolderRename(node.id, name)}
@@ -598,6 +618,7 @@ function SidebarTreeContext({
                 onToggleFolder={onToggleFolder}
                 onSelectFolder={onSelectFolder}
                 onSelectFeed={onSelectFeed}
+                onCreateFeed={onCreateFeed}
                 editingFolderId={editingFolderId}
                 creatingFeedId={creatingFeedId}
                 editingFeedId={editingFeedId}

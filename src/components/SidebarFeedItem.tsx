@@ -16,6 +16,7 @@ type SidebarFeedItemProps = {
   depth: number;
   isActive?: boolean;
   onClick?: () => void;
+  onDoubleClick?: () => void;
   isCreating?: boolean;
   isEditing?: boolean;
   onSubmitUrl?: (value: string) => void | Promise<void>;
@@ -34,6 +35,7 @@ export function SidebarFeedItem({
   depth,
   isActive,
   onClick,
+  onDoubleClick,
   isCreating,
   isEditing,
   onSubmitUrl,
@@ -96,6 +98,7 @@ export function SidebarFeedItem({
           {...(isCreating || isEditing ? {} : attributes)}
           {...(isCreating || isEditing ? {} : listeners)}
           onClick={onClick}
+          onDoubleClick={onDoubleClick}
         >
           <span className="-ml-0.5 flex h-4 w-3 shrink-0" aria-hidden="true" />
           <span className="flex size-4 items-center justify-center text-content-subtle">

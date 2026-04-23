@@ -1,6 +1,7 @@
 import {
   ChevronDownIcon,
   ChevronRightIcon,
+  PlusIcon,
   FolderIcon,
   FolderOpenIcon,
   TextCursorInputIcon,
@@ -28,6 +29,7 @@ type SidebarFolderItemProps = {
   dropInsideZoneId?: string;
   isEditing?: boolean;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onContextMenuCreateFeed?: () => void;
   onContextMenuRename?: () => void;
   onContextMenuDelete?: () => void;
   onToggle?: () => void;
@@ -48,6 +50,7 @@ export function SidebarFolderItem({
   dropInsideZoneId,
   isEditing,
   onClick,
+  onContextMenuCreateFeed,
   onContextMenuRename,
   onContextMenuDelete,
   onToggle,
@@ -155,6 +158,14 @@ export function SidebarFolderItem({
           </button>
         </ContextMenuTrigger>
         <ContextMenuContent>
+          <ContextMenuItem
+            onSelect={() => {
+              window.setTimeout(() => onContextMenuCreateFeed?.(), 0);
+            }}
+          >
+            <PlusIcon className="mr-2 size-3.5" />
+            New feed
+          </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => {
               window.setTimeout(() => onContextMenuRename?.(), 0);
