@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { RefreshCwIcon, RssIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { ArticleList, type ArticleListItem } from "@/components/ArticleList";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { ViewSelect } from "@/components/ViewSelect";
+import { useItemSelection } from "@/hooks/useItemSelection";
 import { RouteLayout } from "@/routes/RouteLayout";
 import { ROUTE, useRoutes } from "@/stores/routeStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
@@ -81,12 +82,27 @@ export function FeedRoute() {
     };
   }, [feedId, loadFeedArticles]);
 
+  const articleItems: ArticleListItem[] = resolvedFeedView.items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    feed: item.feedTitle,
+    summary: item.summaryText ?? item.author ?? "",
+    publishedAt: formatPublishedAt(item.publishedAt),
+    thumbnailUrl: item.thumbnailUrl ?? undefined,
+    unread: !item.isRead,
+    starred: item.isStarred,
+  }));
+
+  const itemIds = useMemo(() => articleItems.map((item) => item.id), [articleItems]);
+
+  const { selectedItemIds, clearSelection, handleItemClick } = useItemSelection({
+    itemIds,
+    scopeKey: feedId,
+    enableSelectAll: true,
+  });
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "r") {
-        return;
-      }
-
       const target = event.target;
       if (
         target instanceof HTMLElement &&
@@ -95,6 +111,10 @@ export function FeedRoute() {
           target instanceof HTMLTextAreaElement ||
           target instanceof HTMLSelectElement)
       ) {
+        return;
+      }
+
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "r") {
         return;
       }
 
@@ -107,17 +127,6 @@ export function FeedRoute() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [feedId, refreshFeed]);
-
-  const articleItems: ArticleListItem[] = resolvedFeedView.items.map((item) => ({
-    id: item.id,
-    title: item.title,
-    feed: item.feedTitle,
-    summary: item.summaryText ?? item.author ?? "",
-    publishedAt: formatPublishedAt(item.publishedAt),
-    thumbnailUrl: item.thumbnailUrl ?? undefined,
-    unread: !item.isRead,
-    starred: item.isStarred,
-  }));
 
   async function handleDeleteFeed() {
     if (!feedId) {
@@ -174,6 +183,9 @@ export function FeedRoute() {
           items={articleItems}
           density={view.density}
           showThumbnails={view.showThumbnails}
+          selectedItemIds={selectedItemIds}
+          onItemClick={(event, item) => handleItemClick(event, item.id)}
+          onClearSelection={clearSelection}
         />
       )}
     </RouteLayout>

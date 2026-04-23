@@ -1,5 +1,7 @@
+import type { MouseEvent, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { ArticleListDensity } from "@/components/ViewSelect";
+import { Button } from "@/components/ui/Button";
 
 export type ArticleListItem = {
   id: string;
@@ -16,28 +18,59 @@ type ArticleListProps = {
   items: ArticleListItem[];
   density?: ArticleListDensity;
   showThumbnails?: boolean;
+  selectedItemIds?: string[];
+  onItemClick?: (event: MouseEvent<HTMLElement>, item: ArticleListItem) => void;
+  selectionActions?: ReactNode;
+  onClearSelection?: () => void;
 };
 
 export function ArticleList({
   items,
   density = "medium",
   showThumbnails = true,
+  selectedItemIds = [],
+  onItemClick,
+  selectionActions,
+  onClearSelection,
 }: ArticleListProps) {
+  const selectedItemIdSet = new Set(selectedItemIds);
+  const hasSelection = selectedItemIds.length > 0;
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="grid grid-cols-[minmax(0,1fr)_120px_88px] gap-3 border-b px-6 py-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-        <span>Item</span>
-        <span>Feed</span>
-        <span className="text-right">Published</span>
-      </div>
+      {hasSelection && selectedItemIds.length > 1 ? (
+        <div className="flex items-center justify-between gap-3 border-b bg-surface-subtle px-6 py-1">
+          <div className="flex items-center gap-3">
+            <span className="text-[13px] font-medium text-foreground">
+              {selectedItemIds.length} selected
+            </span>
+            {selectionActions ? (
+              <div className="flex items-center gap-2">{selectionActions}</div>
+            ) : null}
+          </div>
+          {onClearSelection ? (
+            <Button variant="secondary" size="sm" onClick={onClearSelection}>
+              Clear
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-auto">
         {items.map((item) => (
           <article
             key={item.id}
+            aria-selected={selectedItemIdSet.has(item.id)}
             className={cn(
-              "grid grid-cols-[minmax(0,1fr)_120px_88px] gap-3 border-b px-6 transition-colors hover:bg-interactive-hover",
+              "grid grid-cols-[minmax(0,1fr)_120px_88px] gap-3 border-b px-6 transition-colors",
               rowClassName[density],
+              onItemClick ? "cursor-default hover:bg-interactive-hover" : "",
+              selectedItemIdSet.has(item.id)
+                ? "bg-interactive-active hover:bg-interactive-hover"
+                : "",
             )}
+            onClick={
+              onItemClick ? (event) => onItemClick(event, item) : undefined
+            }
           >
             <div className="flex min-w-0 items-start gap-3">
               {showThumbnails ? (
