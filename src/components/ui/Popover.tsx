@@ -17,7 +17,7 @@ export function PopoverContent({
           align={align}
           sideOffset={sideOffset}
           className={cn(
-            "z-50 w-72 rounded-[14px] border border-border-subtle/80 bg-surface-overlay p-2 outline-none",
+            "z-50 w-72 rounded-[14px] border border-border-subtle/80 bg-surface-overlay backdrop-blur-xs p-2 outline-none",
             className ?? "",
           )}
           {...props}

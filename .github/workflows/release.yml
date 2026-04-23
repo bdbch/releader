@@ -1,0 +1,139 @@
+name: Release Builds
+
+on:
+  release:
+    types:
+      - created
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  build-web:
+    name: Build Web Artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Vite app
+        run: pnpm run build
+
+      - name: Upload frontend dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+          if-no-files-found: error
+
+  build-native:
+    name: Build ${{ matrix.label }}
+    needs: build-web
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows
+            runner: windows-latest
+            asset_suffix: windows
+            bundle_dir: src-tauri/target/release/bundle
+          - label: macOS
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            asset_suffix: macos-apple-silicon
+            bundle_dir: src-tauri/target/aarch64-apple-darwin/release/bundle
+          - label: macOS Intel
+            runner: macos-13
+            target: x86_64-apple-darwin
+            asset_suffix: macos-intel
+            bundle_dir: src-tauri/target/x86_64-apple-darwin/release/bundle
+          - label: Linux
+            runner: ubuntu-latest
+            asset_suffix: linux
+            bundle_dir: src-tauri/target/release/bundle
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add Rust target
+        if: matrix.target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            patchelf
+
+      - name: Install project dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: Build Tauri bundle
+        if: ${{ !matrix.target }}
+        run: pnpm tauri build -- --config src-tauri/tauri.release.conf.json
+
+      - name: Build Tauri bundle for target
+        if: matrix.target
+        run: pnpm tauri build -- --config src-tauri/tauri.release.conf.json --target ${{ matrix.target }}
+
+      - name: Archive bundled artifacts
+        shell: pwsh
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+          ASSET_SUFFIX: ${{ matrix.asset_suffix }}
+          BUNDLE_DIR: ${{ matrix.bundle_dir }}
+        run: |
+          $assetName = "releader-$env:TAG_NAME-$env:ASSET_SUFFIX.zip"
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Compress-Archive -Path "$env:BUNDLE_DIR/*" -DestinationPath "artifacts/$assetName"
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip

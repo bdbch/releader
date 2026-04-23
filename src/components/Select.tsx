@@ -42,7 +42,7 @@ export function Select({
         <SelectPrimitive.Content
           position="popper"
           sideOffset={6}
-          className="z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-border-subtle bg-surface-overlay p-1"
+          className="z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-border-subtle bg-surface-overlay backdrop-blur-xs p-1"
         >
           <SelectPrimitive.Viewport>
             {options.map((option) => (

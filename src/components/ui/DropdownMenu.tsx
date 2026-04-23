@@ -18,7 +18,7 @@ export function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-48 overflow-hidden rounded-xl border border-border-subtle bg-surface-overlay p-1 shadow-lg",
+          "z-50 min-w-48 overflow-hidden rounded-xl border border-border-subtle bg-surface-overlay backdrop-blur-xs p-1 shadow-lg",
           "data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1",
           className ?? "",
         )}
@@ -169,7 +169,7 @@ export function DropdownMenuSubContent({
   return (
     <DropdownMenuPrimitive.SubContent
       className={cn(
-        "z-50 min-w-48 overflow-hidden rounded-xl border border-border-subtle bg-surface-overlay p-1 shadow-lg",
+        "z-50 min-w-48 overflow-hidden rounded-xl border border-border-subtle bg-surface-overlay backdrop-blur-xs p-1 shadow-lg",
         className ?? "",
       )}
       {...props}

@@ -18,7 +18,10 @@
         "minHeight": 700,
         "minWidth": 1000,
         "titleBarStyle": "Overlay",
-        "transparent": true
+        "transparent": true,
+        "windowEffects": {
+          "effects": ["mica"]
+        }
       }
     ],
     "security": {
