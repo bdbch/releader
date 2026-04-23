@@ -134,6 +134,13 @@ pub struct DeleteFeedResult {
     pub feed_id: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResetSeededDataResult {
+    pub folders_count: usize,
+    pub feeds_count: usize,
+}
+
 #[derive(Debug, Clone)]
 struct FeedFetchTarget {
     id: String,
@@ -468,6 +475,47 @@ pub fn delete_feed(db_path: &PathBuf, feed_id: &str) -> Result<DeleteFeedResult,
 
     Ok(DeleteFeedResult {
         feed_id: feed_id.to_string(),
+    })
+}
+
+pub fn reset_seeded_data(db_path: &PathBuf) -> Result<ResetSeededDataResult, String> {
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let transaction = connection
+        .transaction()
+        .map_err(|error| format!("failed to start reset transaction: {error}"))?;
+
+    transaction
+        .execute("DELETE FROM articles", [])
+        .map_err(|error| format!("failed to clear articles: {error}"))?;
+    transaction
+        .execute("DELETE FROM feeds", [])
+        .map_err(|error| format!("failed to clear feeds: {error}"))?;
+    transaction
+        .execute("DELETE FROM folders", [])
+        .map_err(|error| format!("failed to clear folders: {error}"))?;
+    transaction
+        .execute("DELETE FROM app_state", [])
+        .map_err(|error| format!("failed to clear app state: {error}"))?;
+
+    seed_sidebar_data(&transaction)?;
+
+    let folders_count = transaction
+        .query_row("SELECT COUNT(*) FROM folders", [], |row| row.get::<_, i64>(0))
+        .map_err(|error| format!("failed to count seeded folders: {error}"))?
+        as usize;
+    let feeds_count = transaction
+        .query_row("SELECT COUNT(*) FROM feeds", [], |row| row.get::<_, i64>(0))
+        .map_err(|error| format!("failed to count seeded feeds: {error}"))?
+        as usize;
+
+    transaction
+        .commit()
+        .map_err(|error| format!("failed to commit reset transaction: {error}"))?;
+
+    Ok(ResetSeededDataResult {
+        folders_count,
+        feeds_count,
     })
 }
 
@@ -1183,54 +1231,108 @@ fn seed_sidebar_data(connection: &Connection) -> Result<(), String> {
     connection
         .execute(
             "INSERT INTO folders (id, name, parent_folder_id, sort_order, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params!["folder-tech", "Tech", Option::<String>::None, 0, now, now],
+            params!["folder-technology", "Technology", Option::<String>::None, 0, now, now],
         )
-        .map_err(|error| format!("failed to seed folder Tech: {error}"))?;
+        .map_err(|error| format!("failed to seed folder Technology: {error}"))?;
     connection
         .execute(
             "INSERT INTO folders (id, name, parent_folder_id, sort_order, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params!["folder-design", "Design", Option::<String>::None, 1, now, now],
+            params!["folder-news", "News", Option::<String>::None, 1, now, now],
         )
-        .map_err(|error| format!("failed to seed folder Design: {error}"))?;
+        .map_err(|error| format!("failed to seed folder News: {error}"))?;
     connection
         .execute(
             "INSERT INTO folders (id, name, parent_folder_id, sort_order, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params!["folder-devtools", "Dev Tools", Some("folder-tech"), 0, now, now],
+            params!["folder-technology-ai", "AI", Some("folder-technology"), 0, now, now],
         )
-        .map_err(|error| format!("failed to seed folder Dev Tools: {error}"))?;
+        .map_err(|error| format!("failed to seed folder AI: {error}"))?;
+    connection
+        .execute(
+            "INSERT INTO folders (id, name, parent_folder_id, sort_order, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params!["folder-technology-news", "News", Some("folder-technology"), 1, now, now],
+        )
+        .map_err(|error| format!("failed to seed folder Technology/News: {error}"))?;
 
     let feeds = [
         (
-            "feed-ars",
-            "Ars Technica",
-            "https://feeds.arstechnica.com/arstechnica/index",
-            Some("https://arstechnica.com"),
-            Some("folder-tech"),
+            "feed-openai",
+            "OpenAI",
+            "https://openai.com/news/rss.xml",
+            Some("https://openai.com/news"),
+            Some("folder-technology-ai"),
             0,
         ),
         (
-            "feed-tauri",
-            "Tauri Blog",
-            "https://tauri.app/blog/rss.xml",
-            Some("https://tauri.app"),
-            Some("folder-devtools"),
-            0,
+            "feed-google-ai",
+            "Google AI",
+            "https://blog.google/innovation-and-ai/technology/ai/rss/",
+            Some("https://blog.google/innovation-and-ai/technology/ai/"),
+            Some("folder-technology-ai"),
+            1,
         ),
         (
-            "feed-verge",
+            "feed-the-verge",
             "The Verge",
             "https://www.theverge.com/rss/index.xml",
             Some("https://www.theverge.com"),
-            Option::<&str>::None,
+            Some("folder-technology-news"),
             0,
         ),
         (
-            "feed-figma",
-            "Figma",
-            "https://www.figma.com/blog/feed.xml",
-            Some("https://www.figma.com/blog"),
-            Some("folder-design"),
+            "feed-wired",
+            "WIRED",
+            "https://www.wired.com/feed/rss",
+            Some("https://www.wired.com"),
+            Some("folder-technology-news"),
+            1,
+        ),
+        (
+            "feed-techcrunch",
+            "TechCrunch",
+            "https://techcrunch.com/feed/",
+            Some("https://techcrunch.com"),
+            Some("folder-technology-news"),
+            2,
+        ),
+        (
+            "feed-bbc-news",
+            "BBC News",
+            "http://feeds.bbci.co.uk/news/rss.xml",
+            Some("https://www.bbc.com/news"),
+            Some("folder-news"),
             0,
+        ),
+        (
+            "feed-new-york-times",
+            "The New York Times",
+            "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+            Some("https://www.nytimes.com"),
+            Some("folder-news"),
+            1,
+        ),
+        (
+            "feed-cnn-news",
+            "CNN News",
+            "http://rss.cnn.com/rss/edition_world.rss",
+            Some("https://www.cnn.com/world"),
+            Some("folder-news"),
+            2,
+        ),
+        (
+            "feed-ndtv",
+            "NDTV",
+            "https://feeds.feedburner.com/ndtvnews-world-news",
+            Some("https://www.ndtv.com/world-news"),
+            Some("folder-news"),
+            3,
+        ),
+        (
+            "feed-the-guardian",
+            "The Guardian",
+            "https://www.theguardian.com/world/rss",
+            Some("https://www.theguardian.com/world"),
+            Some("folder-news"),
+            4,
         ),
     ];
 

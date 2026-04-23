@@ -1,6 +1,7 @@
 mod db;
 
 use db::{
+    reset_seeded_data as reset_app_seeded_data,
     get_sidebar_data as load_sidebar_data, init_database,
     list_articles as load_articles,
     load_sidebar_expansion_state as read_sidebar_expansion_state,
@@ -9,7 +10,7 @@ use db::{
     save_sidebar_expansion_state as persist_sidebar_expansion_state,
     save_sidebar_structure as persist_sidebar_structure, start_background_feed_sync, AppState,
     FeedMoveInput, FolderMoveInput, ListArticlesInput, RefetchFeedResult, SidebarData,
-    ArticlePage, DeleteFeedResult, FeedSyncState,
+    ArticlePage, DeleteFeedResult, FeedSyncState, ResetSeededDataResult,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -68,6 +69,13 @@ fn delete_feed(
     remove_feed(&state.db_path, &feed_id)
 }
 
+#[tauri::command]
+fn reset_seeded_data(
+    state: tauri::State<'_, AppState>,
+) -> Result<ResetSeededDataResult, String> {
+    reset_app_seeded_data(&state.db_path)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -94,7 +102,8 @@ pub fn run() {
             save_sidebar_expansion_state,
             list_articles,
             refetch_feed,
-            delete_feed
+            delete_feed,
+            reset_seeded_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

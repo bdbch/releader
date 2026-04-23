@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   deleteFeed,
   getSidebarData,
+  resetSeededData,
   saveSidebarStructure,
 } from "@/lib/sidebarApi";
 import {
@@ -24,6 +25,7 @@ type SidebarState = {
   setSidebarStructure: (folders: FolderRecord[], feeds: FeedRecord[]) => void;
   persistSidebarStructure: () => Promise<void>;
   removeFeed: (feedId: string) => Promise<void>;
+  resetToSeededData: () => Promise<{ foldersCount: number; feedsCount: number }>;
 };
 
 export const useSidebarStore = create<SidebarState>((set, get) => ({
@@ -104,6 +106,19 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
     await deleteFeed(feedId);
     set({ hasLoaded: false });
     await get().loadSidebarData();
+  },
+  resetToSeededData: async () => {
+    const result = await resetSeededData();
+    set({
+      folders: [],
+      feeds: [],
+      expandedFolderIds: {},
+      error: null,
+      hasLoaded: false,
+      isLoading: false,
+    });
+    await get().loadSidebarData();
+    return result;
   },
 }));
 

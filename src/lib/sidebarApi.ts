@@ -26,3 +26,7 @@ export async function saveSidebarStructure({
 export async function deleteFeed(feedId: string) {
   return invoke<{ feedId: string }>("delete_feed", { feedId });
 }
+
+export async function resetSeededData() {
+  return invoke<{ foldersCount: number; feedsCount: number }>("reset_seeded_data");
+}
