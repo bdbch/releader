@@ -3,6 +3,7 @@ mod db;
 use db::{
     create_folder as insert_folder,
     create_feed_draft as insert_feed_draft,
+    delete_articles as remove_articles,
     delete_folder as remove_folder,
     reset_seeded_data as reset_app_seeded_data,
     get_sidebar_data as load_sidebar_data, init_database,
@@ -17,7 +18,8 @@ use db::{
     save_sidebar_structure as persist_sidebar_structure, start_background_feed_sync, AppState,
     FeedMoveInput, FolderMoveInput, ListArticlesInput, RefetchFeedResult, SidebarData,
     ArticlePage, CreateFeedDraftResult, CreateFolderResult, DeleteFeedResult,
-    DeleteFolderResult, FeedRecord, FeedSyncState, FolderRecord, ResetSeededDataResult,
+    DeleteFolderResult, DeleteArticlesResult, FeedRecord, FeedSyncState, FolderRecord, ResetSeededDataResult,
+    UpdateArticlesReadStateResult, update_articles_read_state as set_articles_read_state,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -128,6 +130,23 @@ fn delete_folder(
 }
 
 #[tauri::command]
+fn update_articles_read_state(
+    state: tauri::State<'_, AppState>,
+    article_ids: Vec<String>,
+    is_read: bool,
+) -> Result<UpdateArticlesReadStateResult, String> {
+    set_articles_read_state(&state.db_path, &article_ids, is_read)
+}
+
+#[tauri::command]
+fn delete_articles(
+    state: tauri::State<'_, AppState>,
+    article_ids: Vec<String>,
+) -> Result<DeleteArticlesResult, String> {
+    remove_articles(&state.db_path, &article_ids)
+}
+
+#[tauri::command]
 fn reset_seeded_data(
     state: tauri::State<'_, AppState>,
 ) -> Result<ResetSeededDataResult, String> {
@@ -167,6 +186,8 @@ pub fn run() {
             initialize_feed_from_url,
             delete_feed,
             delete_folder,
+            update_articles_read_state,
+            delete_articles,
             reset_seeded_data
         ])
         .run(tauri::generate_context!())

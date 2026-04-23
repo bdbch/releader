@@ -143,6 +143,19 @@ pub struct DeleteFolderResult {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UpdateArticlesReadStateResult {
+    pub article_ids: Vec<String>,
+    pub is_read: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteArticlesResult {
+    pub article_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResetSeededDataResult {
     pub folders_count: usize,
     pub feeds_count: usize,
@@ -510,6 +523,77 @@ pub fn delete_folder(db_path: &PathBuf, folder_id: &str) -> Result<DeleteFolderR
 
     Ok(DeleteFolderResult {
         folder_id: folder_id.to_string(),
+    })
+}
+
+pub fn update_articles_read_state(
+    db_path: &PathBuf,
+    article_ids: &[String],
+    is_read: bool,
+) -> Result<UpdateArticlesReadStateResult, String> {
+    if article_ids.is_empty() {
+        return Ok(UpdateArticlesReadStateResult {
+            article_ids: Vec::new(),
+            is_read,
+        });
+    }
+
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let transaction = connection
+        .transaction()
+        .map_err(|error| format!("failed to start article update transaction: {error}"))?;
+    let now = Utc::now().to_rfc3339();
+
+    for article_id in article_ids {
+        transaction
+            .execute(
+                r#"
+                UPDATE articles
+                SET is_read = ?1,
+                    updated_at = ?2
+                WHERE id = ?3
+                "#,
+                params![is_read as i64, now, article_id],
+            )
+            .map_err(|error| format!("failed to update article read state: {error}"))?;
+    }
+
+    transaction
+        .commit()
+        .map_err(|error| format!("failed to commit article read state update: {error}"))?;
+
+    Ok(UpdateArticlesReadStateResult {
+        article_ids: article_ids.to_vec(),
+        is_read,
+    })
+}
+
+pub fn delete_articles(db_path: &PathBuf, article_ids: &[String]) -> Result<DeleteArticlesResult, String> {
+    if article_ids.is_empty() {
+        return Ok(DeleteArticlesResult {
+            article_ids: Vec::new(),
+        });
+    }
+
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let transaction = connection
+        .transaction()
+        .map_err(|error| format!("failed to start article delete transaction: {error}"))?;
+
+    for article_id in article_ids {
+        transaction
+            .execute("DELETE FROM articles WHERE id = ?1", params![article_id])
+            .map_err(|error| format!("failed to delete article: {error}"))?;
+    }
+
+    transaction
+        .commit()
+        .map_err(|error| format!("failed to commit article deletion: {error}"))?;
+
+    Ok(DeleteArticlesResult {
+        article_ids: article_ids.to_vec(),
     })
 }
 

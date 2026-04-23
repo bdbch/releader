@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
-import { RefreshCwIcon, RssIcon } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+import { RefreshCwIcon, RssIcon, Trash2Icon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { ArticleList, type ArticleListItem } from "@/components/ArticleList";
+import { ContextMenuItem } from "@/components/ui/ContextMenu";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { ViewSelect } from "@/components/ViewSelect";
+import { useItemSelection } from "@/hooks/useItemSelection";
 import { RouteLayout } from "@/routes/RouteLayout";
 import { ROUTE, useRoutes } from "@/stores/routeStore";
 import { useSidebarStore } from "@/stores/sidebarStore";
@@ -24,6 +26,8 @@ export function FeedRoute() {
   const feedView = useArticleStore((state) => state.feedViews[feedId]);
   const loadFeedArticles = useArticleStore((state) => state.loadFeedArticles);
   const refreshFeed = useArticleStore((state) => state.refreshFeed);
+  const markArticlesReadState = useArticleStore((state) => state.markArticlesReadState);
+  const deleteArticlesById = useArticleStore((state) => state.deleteArticlesById);
   const resolvedFeedView = feedView ?? emptyFeedState;
   const isMissingFeed = feed?.lastFetchStatus === "not_found";
 
@@ -81,12 +85,27 @@ export function FeedRoute() {
     };
   }, [feedId, loadFeedArticles]);
 
+  const articleItems: ArticleListItem[] = resolvedFeedView.items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    feed: item.feedTitle,
+    summary: item.summaryText ?? item.author ?? "",
+    publishedAt: formatPublishedAt(item.publishedAt),
+    thumbnailUrl: item.thumbnailUrl ?? undefined,
+    unread: !item.isRead,
+    starred: item.isStarred,
+  }));
+
+  const itemIds = useMemo(() => articleItems.map((item) => item.id), [articleItems]);
+
+  const { selectedItemIds, clearSelection, handleItemClick } = useItemSelection({
+    itemIds,
+    scopeKey: feedId,
+    enableSelectAll: true,
+  });
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "r") {
-        return;
-      }
-
       const target = event.target;
       if (
         target instanceof HTMLElement &&
@@ -95,6 +114,10 @@ export function FeedRoute() {
           target instanceof HTMLTextAreaElement ||
           target instanceof HTMLSelectElement)
       ) {
+        return;
+      }
+
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "r") {
         return;
       }
 
@@ -108,17 +131,6 @@ export function FeedRoute() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [feedId, refreshFeed]);
 
-  const articleItems: ArticleListItem[] = resolvedFeedView.items.map((item) => ({
-    id: item.id,
-    title: item.title,
-    feed: item.feedTitle,
-    summary: item.summaryText ?? item.author ?? "",
-    publishedAt: formatPublishedAt(item.publishedAt),
-    thumbnailUrl: item.thumbnailUrl ?? undefined,
-    unread: !item.isRead,
-    starred: item.isStarred,
-  }));
-
   async function handleDeleteFeed() {
     if (!feedId) {
       return;
@@ -126,6 +138,30 @@ export function FeedRoute() {
 
     await removeFeed(feedId);
     setCurrentRoute(ROUTE.DASHBOARD);
+  }
+
+  async function handleMarkSelectionAsReadState(isRead: boolean) {
+    await markArticlesReadState(selectedItemIds, isRead);
+    clearSelection();
+  }
+
+  async function handleDeleteSelection() {
+    await deleteArticlesById(selectedItemIds);
+    clearSelection();
+  }
+
+  function getContextActionArticleIds(articleId: string) {
+    return Array.from(new Set([...selectedItemIds, articleId]));
+  }
+
+  async function handleMarkItemReadState(articleId: string, isRead: boolean) {
+    await markArticlesReadState(getContextActionArticleIds(articleId), isRead);
+    clearSelection();
+  }
+
+  async function handleDeleteItem(articleId: string) {
+    await deleteArticlesById(getContextActionArticleIds(articleId));
+    clearSelection();
   }
 
   return (
@@ -174,6 +210,48 @@ export function FeedRoute() {
           items={articleItems}
           density={view.density}
           showThumbnails={view.showThumbnails}
+          selectedItemIds={selectedItemIds}
+          onItemClick={(event, item) => handleItemClick(event, item.id)}
+          selectionActions={
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleMarkSelectionAsReadState(true)}
+              >
+                Mark as read
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleMarkSelectionAsReadState(false)}
+              >
+                Mark as unread
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                iconLeft={<Trash2Icon className="size-3.5" />}
+                onClick={() => void handleDeleteSelection()}
+              >
+                Delete
+              </Button>
+            </>
+          }
+          onClearSelection={clearSelection}
+          renderItemContextMenu={(item) => (
+            <>
+              <ContextMenuItem onSelect={() => void handleMarkItemReadState(item.id, true)}>
+                Mark as read
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => void handleMarkItemReadState(item.id, false)}>
+                Mark as unread
+              </ContextMenuItem>
+              <ContextMenuItem onSelect={() => void handleDeleteItem(item.id)}>
+                Delete
+              </ContextMenuItem>
+            </>
+          )}
         />
       )}
     </RouteLayout>
