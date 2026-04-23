@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+    --font-sans: "Inter", system-ui, sans-serif;
+
+    --color-background: #ffffff;
+    --color-muted: #f0f0f0;
+
+    --color-foreground: #000000;
+    --color-muted-foreground: #757575;
+
+    --color-border: #e0e0e0;
+
+    --spacing-titlebar: 2.5rem;
+}
+
+*,
+::before,
+::after {
+    @apply border-border select-none;
+}
+
+:root {
+    @apply bg-background text-foreground font-sans;
+}
+
+html,
+body,
+#root {
+    height: 100vh;
+    width: 100vw;
+}
