@@ -1,20 +1,25 @@
 mod db;
 
 use db::{
-    create_feed_draft as insert_feed_draft, create_folder as insert_folder,
-    delete_articles as remove_articles, delete_feed as remove_feed, delete_folder as remove_folder,
-    get_sidebar_data as load_sidebar_data, init_database,
-    initialize_feed_from_url as initialize_feed, list_articles as load_articles,
-    load_sidebar_expansion_state as read_sidebar_expansion_state, refetch_feed as refresh_feed,
-    rename_feed as update_feed_title, rename_folder as update_folder_name,
+    create_folder as insert_folder,
+    create_feed_draft as insert_feed_draft,
+    delete_articles as remove_articles,
+    delete_folder as remove_folder,
     reset_seeded_data as reset_app_seeded_data,
+    get_sidebar_data as load_sidebar_data, init_database,
+    initialize_feed_from_url as initialize_feed,
+    list_articles as load_articles,
+    load_sidebar_expansion_state as read_sidebar_expansion_state,
+    delete_feed as remove_feed,
+    rename_feed as update_feed_title,
+    rename_folder as update_folder_name,
+    refetch_feed as refresh_feed,
     save_sidebar_expansion_state as persist_sidebar_expansion_state,
-    save_sidebar_structure as persist_sidebar_structure, start_background_feed_sync,
-    update_articles_read_state as set_articles_read_state, AppState, ArticlePage,
-    CreateFeedDraftResult, CreateFolderResult, DeleteArticlesResult, DeleteFeedResult,
-    DeleteFolderResult, FeedMoveInput, FeedRecord, FeedSyncState, FolderMoveInput, FolderRecord,
-    ListArticlesInput, RefetchFeedResult, ResetSeededDataResult, SidebarData,
-    UpdateArticlesReadStateResult,
+    save_sidebar_structure as persist_sidebar_structure, start_background_feed_sync, AppState,
+    FeedMoveInput, FolderMoveInput, ListArticlesInput, RefetchFeedResult, SidebarData,
+    ArticlePage, CreateFeedDraftResult, CreateFolderResult, DeleteFeedResult,
+    DeleteFolderResult, DeleteArticlesResult, FeedRecord, FeedSyncState, FolderRecord, ResetSeededDataResult,
+    UpdateArticlesReadStateResult, update_articles_read_state as set_articles_read_state,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -92,10 +97,7 @@ async fn refetch_feed(
     feed_id: String,
 ) -> Result<RefetchFeedResult, String> {
     let result = refresh_feed(&state.db_path, state.sync_state.clone(), &feed_id).await?;
-    let _ = app.emit(
-        "feed-sync-updated",
-        serde_json::json!({ "feedId": feed_id }),
-    );
+    let _ = app.emit("feed-sync-updated", serde_json::json!({ "feedId": feed_id }));
     Ok(result)
 }
 
@@ -107,10 +109,7 @@ async fn initialize_feed_from_url(
     url: String,
 ) -> Result<FeedRecord, String> {
     let feed = initialize_feed(&state.db_path, state.sync_state.clone(), &feed_id, &url).await?;
-    let _ = app.emit(
-        "feed-sync-updated",
-        serde_json::json!({ "feedId": feed_id }),
-    );
+    let _ = app.emit("feed-sync-updated", serde_json::json!({ "feedId": feed_id }));
     Ok(feed)
 }
 
@@ -148,14 +147,15 @@ fn delete_articles(
 }
 
 #[tauri::command]
-fn reset_seeded_data(state: tauri::State<'_, AppState>) -> Result<ResetSeededDataResult, String> {
+fn reset_seeded_data(
+    state: tauri::State<'_, AppState>,
+) -> Result<ResetSeededDataResult, String> {
     reset_app_seeded_data(&state.db_path)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_os::init())
         .setup(|app| {
             let db_path = init_database(app.handle())?;
             let sync_state = Arc::new(FeedSyncState {

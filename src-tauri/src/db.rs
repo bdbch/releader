@@ -206,8 +206,8 @@ pub fn init_database(app_handle: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|error| format!("failed to create app data directory: {error}"))?;
 
     let db_path = app_data_dir.join("releader.sqlite");
-    let connection =
-        Connection::open(&db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(&db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
 
     connection
         .execute_batch(
@@ -316,14 +316,18 @@ fn ensure_column_exists(
             &format!("ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"),
             [],
         )
-        .map_err(|error| format!("failed to add {column_name} column to {table_name}: {error}"))?;
+        .map_err(|error| {
+            format!(
+                "failed to add {column_name} column to {table_name}: {error}"
+            )
+        })?;
 
     Ok(())
 }
 
 pub fn get_sidebar_data(db_path: &PathBuf) -> Result<SidebarData, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
 
     let mut folder_statement = connection
         .prepare(
@@ -369,9 +373,12 @@ pub fn get_sidebar_data(db_path: &PathBuf) -> Result<SidebarData, String> {
     Ok(SidebarData { folders, feeds })
 }
 
-pub fn list_articles(db_path: &PathBuf, input: ListArticlesInput) -> Result<ArticlePage, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+pub fn list_articles(
+    db_path: &PathBuf,
+    input: ListArticlesInput,
+) -> Result<ArticlePage, String> {
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
 
     let limit = input
         .limit
@@ -394,9 +401,11 @@ pub fn list_articles(db_path: &PathBuf, input: ListArticlesInput) -> Result<Arti
     })
 }
 
-pub fn load_sidebar_expansion_state(db_path: &PathBuf) -> Result<HashMap<String, bool>, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+pub fn load_sidebar_expansion_state(
+    db_path: &PathBuf,
+) -> Result<HashMap<String, bool>, String> {
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
 
     let raw_value: Option<String> = connection
         .query_row(
@@ -418,8 +427,8 @@ pub fn save_sidebar_expansion_state(
     db_path: &PathBuf,
     expanded_folder_ids: HashMap<String, bool>,
 ) -> Result<(), String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let serialized = serde_json::to_string(&expanded_folder_ids)
         .map_err(|error| format!("failed to serialize sidebar expansion state: {error}"))?;
 
@@ -438,8 +447,8 @@ pub fn save_sidebar_structure(
     folders: Vec<FolderMoveInput>,
     feeds: Vec<FeedMoveInput>,
 ) -> Result<(), String> {
-    let mut connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let transaction = connection
         .transaction()
         .map_err(|error| format!("failed to start transaction: {error}"))?;
@@ -470,8 +479,8 @@ pub fn save_sidebar_structure(
 }
 
 pub fn delete_feed(db_path: &PathBuf, feed_id: &str) -> Result<DeleteFeedResult, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
 
     let deleted_rows = connection
         .execute("DELETE FROM feeds WHERE id = ?1", params![feed_id])
@@ -487,8 +496,8 @@ pub fn delete_feed(db_path: &PathBuf, feed_id: &str) -> Result<DeleteFeedResult,
 }
 
 pub fn delete_folder(db_path: &PathBuf, folder_id: &str) -> Result<DeleteFolderResult, String> {
-    let mut connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let transaction = connection
         .transaction()
         .map_err(|error| format!("failed to start delete folder transaction: {error}"))?;
@@ -496,10 +505,7 @@ pub fn delete_folder(db_path: &PathBuf, folder_id: &str) -> Result<DeleteFolderR
 
     for subtree_folder_id in &folder_ids {
         transaction
-            .execute(
-                "DELETE FROM feeds WHERE folder_id = ?1",
-                params![subtree_folder_id],
-            )
+            .execute("DELETE FROM feeds WHERE folder_id = ?1", params![subtree_folder_id])
             .map_err(|error| format!("failed to delete folder feeds: {error}"))?;
     }
 
@@ -532,8 +538,8 @@ pub fn update_articles_read_state(
         });
     }
 
-    let mut connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let transaction = connection
         .transaction()
         .map_err(|error| format!("failed to start article update transaction: {error}"))?;
@@ -563,18 +569,15 @@ pub fn update_articles_read_state(
     })
 }
 
-pub fn delete_articles(
-    db_path: &PathBuf,
-    article_ids: &[String],
-) -> Result<DeleteArticlesResult, String> {
+pub fn delete_articles(db_path: &PathBuf, article_ids: &[String]) -> Result<DeleteArticlesResult, String> {
     if article_ids.is_empty() {
         return Ok(DeleteArticlesResult {
             article_ids: Vec::new(),
         });
     }
 
-    let mut connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let transaction = connection
         .transaction()
         .map_err(|error| format!("failed to start article delete transaction: {error}"))?;
@@ -594,10 +597,7 @@ pub fn delete_articles(
     })
 }
 
-fn load_folder_subtree_ids(
-    connection: &Connection,
-    folder_id: &str,
-) -> Result<Vec<String>, String> {
+fn load_folder_subtree_ids(connection: &Connection, folder_id: &str) -> Result<Vec<String>, String> {
     let mut statement = connection
         .prepare(
             r#"
@@ -632,8 +632,8 @@ fn load_folder_subtree_ids(
 }
 
 pub fn create_folder(db_path: &PathBuf) -> Result<CreateFolderResult, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let now = Utc::now().to_rfc3339();
     let folder_id = format!("folder-{}", Uuid::new_v4());
     let sort_order = connection
@@ -667,8 +667,8 @@ pub fn create_folder(db_path: &PathBuf) -> Result<CreateFolderResult, String> {
 }
 
 pub fn create_feed_draft(db_path: &PathBuf) -> Result<CreateFeedDraftResult, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let now = Utc::now().to_rfc3339();
     let feed_id = format!("feed-{}", Uuid::new_v4());
     let draft_url = format!("draft://{feed_id}");
@@ -711,8 +711,8 @@ pub fn create_feed_draft(db_path: &PathBuf) -> Result<CreateFeedDraftResult, Str
 }
 
 pub fn rename_feed(db_path: &PathBuf, feed_id: &str, title: &str) -> Result<FeedRecord, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let trimmed_title = title.trim();
 
     if trimmed_title.is_empty() {
@@ -749,8 +749,8 @@ pub async fn initialize_feed_from_url(
     let normalized_url = Url::parse(url)
         .map_err(|error| format!("invalid feed url: {error}"))?
         .to_string();
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let now = Utc::now().to_rfc3339();
     let updated_rows = connection
         .execute(
@@ -779,19 +779,15 @@ pub async fn initialize_feed_from_url(
         .ok_or_else(|| format!("feed not found: {feed_id}"))?;
     let _ = fetch_and_store_feed(db_path, sync_state, target).await;
 
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to reopen database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to reopen database: {error}"))?;
     load_feed_record_by_id(&connection, feed_id)?
         .ok_or_else(|| format!("feed not found: {feed_id}"))
 }
 
-pub fn rename_folder(
-    db_path: &PathBuf,
-    folder_id: &str,
-    name: &str,
-) -> Result<FolderRecord, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+pub fn rename_folder(db_path: &PathBuf, folder_id: &str, name: &str) -> Result<FolderRecord, String> {
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let trimmed_name = name.trim();
 
     if trimmed_name.is_empty() {
@@ -838,8 +834,8 @@ pub fn rename_folder(
 }
 
 pub fn reset_seeded_data(db_path: &PathBuf) -> Result<ResetSeededDataResult, String> {
-    let mut connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let transaction = connection
         .transaction()
         .map_err(|error| format!("failed to start reset transaction: {error}"))?;
@@ -860,9 +856,7 @@ pub fn reset_seeded_data(db_path: &PathBuf) -> Result<ResetSeededDataResult, Str
     seed_sidebar_data(&transaction)?;
 
     let folders_count = transaction
-        .query_row("SELECT COUNT(*) FROM folders", [], |row| {
-            row.get::<_, i64>(0)
-        })
+        .query_row("SELECT COUNT(*) FROM folders", [], |row| row.get::<_, i64>(0))
         .map_err(|error| format!("failed to count seeded folders: {error}"))?
         as usize;
     let feeds_count = transaction
@@ -1003,7 +997,12 @@ async fn fetch_and_store_feed_inner(
     }
 
     if response.status() == reqwest::StatusCode::NOT_FOUND {
-        mark_feed_fetch_error(db_path, &target.id, "not_found", "Feed does not exist.")?;
+        mark_feed_fetch_error(
+            db_path,
+            &target.id,
+            "not_found",
+            "Feed does not exist.",
+        )?;
 
         return Err(format!("feed not found: {}", target.title));
     }
@@ -1175,10 +1174,7 @@ fn map_feed_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<FeedRecord> {
     })
 }
 
-fn load_feed_record_by_id(
-    connection: &Connection,
-    feed_id: &str,
-) -> Result<Option<FeedRecord>, String> {
+fn load_feed_record_by_id(connection: &Connection, feed_id: &str) -> Result<Option<FeedRecord>, String> {
     connection
         .query_row(
             r#"
@@ -1194,8 +1190,8 @@ fn load_feed_record_by_id(
 }
 
 fn load_due_feed_targets(db_path: &PathBuf) -> Result<Vec<FeedFetchTarget>, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
 
     let now = Utc::now();
     let mut statement = connection
@@ -1228,13 +1224,15 @@ fn load_due_feed_targets(db_path: &PathBuf) -> Result<Vec<FeedFetchTarget>, Stri
 
     Ok(feeds
         .into_iter()
-        .filter_map(|(target, last_fetched_at)| match last_fetched_at {
-            Some(value) => DateTime::parse_from_rfc3339(&value)
-                .ok()
-                .map(|date| date.with_timezone(&Utc))
-                .filter(|date| *date + chrono::Duration::minutes(FEED_SYNC_INTERVAL_MINUTES) <= now)
-                .map(|_| target),
-            None => Some(target),
+        .filter_map(|(target, last_fetched_at)| {
+            match last_fetched_at {
+                Some(value) => DateTime::parse_from_rfc3339(&value)
+                    .ok()
+                    .map(|date| date.with_timezone(&Utc))
+                    .filter(|date| *date + chrono::Duration::minutes(FEED_SYNC_INTERVAL_MINUTES) <= now)
+                    .map(|_| target),
+                None => Some(target),
+            }
         })
         .collect())
 }
@@ -1243,8 +1241,8 @@ fn load_feed_fetch_target(
     db_path: &PathBuf,
     feed_id: &str,
 ) -> Result<Option<FeedFetchTarget>, String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
 
     connection
         .query_row(
@@ -1292,10 +1290,7 @@ fn parse_feed_entry(entry: &Entry) -> ParsedArticle {
         .published
         .or(entry.updated)
         .map(|date| date.with_timezone(&Utc).to_rfc3339());
-    let summary_html = entry
-        .summary
-        .as_ref()
-        .map(|content| content.content.clone());
+    let summary_html = entry.summary.as_ref().map(|content| content.content.clone());
     let summary_text = summary_html
         .as_ref()
         .map(|value| strip_html(value))
@@ -1306,17 +1301,23 @@ fn parse_feed_entry(entry: &Entry) -> ParsedArticle {
         .and_then(|content| content.body.clone())
         .filter(|value| !value.trim().is_empty())
         .or_else(|| summary_html.clone());
-    let thumbnail_url =
-        extract_thumbnail_url(entry, content_html.as_deref(), summary_html.as_deref());
+    let thumbnail_url = extract_thumbnail_url(
+        entry,
+        content_html.as_deref(),
+        summary_html.as_deref(),
+    );
     let author = entry.authors.first().map(|author| author.name.clone());
-    let external_id = guid.clone().or_else(|| url.clone()).unwrap_or_else(|| {
-        format!(
-            "{}:{}:{}",
-            title,
-            published_at.clone().unwrap_or_default(),
-            Uuid::new_v4()
-        )
-    });
+    let external_id = guid
+        .clone()
+        .or_else(|| url.clone())
+        .unwrap_or_else(|| {
+            format!(
+                "{}:{}:{}",
+                title,
+                published_at.clone().unwrap_or_default(),
+                Uuid::new_v4()
+            )
+        });
 
     ParsedArticle {
         title,
@@ -1340,12 +1341,7 @@ fn extract_thumbnail_url(
     entry
         .media
         .iter()
-        .flat_map(|media| {
-            media
-                .thumbnails
-                .iter()
-                .map(|thumbnail| thumbnail.image.uri.clone())
-        })
+        .flat_map(|media| media.thumbnails.iter().map(|thumbnail| thumbnail.image.uri.clone()))
         .find(|url| is_supported_thumbnail_url(url))
         .or_else(|| {
             entry
@@ -1380,10 +1376,7 @@ fn extract_thumbnail_url(
 
 fn extract_first_image_src(html: &str) -> Option<String> {
     let image_tag_index = html.find("<img")?;
-    let image_tag = &html[image_tag_index
-        ..html[image_tag_index..]
-            .find('>')
-            .map(|index| image_tag_index + index)?];
+    let image_tag = &html[image_tag_index..html[image_tag_index..].find('>').map(|index| image_tag_index + index)?];
 
     extract_html_attribute(image_tag, "src").filter(|url| is_supported_thumbnail_url(url))
 }
@@ -1430,8 +1423,8 @@ fn upsert_articles(
     feed_id: &str,
     articles: Vec<ParsedArticle>,
 ) -> Result<(usize, usize), String> {
-    let mut connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let mut connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let transaction = connection
         .transaction()
         .map_err(|error| format!("failed to start transaction: {error}"))?;
@@ -1545,8 +1538,8 @@ fn mark_feed_fetch_success(
     etag: Option<String>,
     last_modified: Option<String>,
 ) -> Result<(), String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let now = Utc::now().to_rfc3339();
 
     connection
@@ -1574,8 +1567,8 @@ fn mark_feed_fetch_error(
     status: &str,
     error_message: &str,
 ) -> Result<(), String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let now = Utc::now().to_rfc3339();
 
     connection
@@ -1650,11 +1643,7 @@ fn extract_feed_icon_source_url(feed: &Feed, fallback_feed_url: &str) -> Option<
 fn resolve_url(base_url: &str, value: &str) -> Option<String> {
     Url::parse(value)
         .map(|url| url.to_string())
-        .or_else(|_| {
-            Url::parse(base_url)
-                .and_then(|base| base.join(value))
-                .map(|url| url.to_string())
-        })
+        .or_else(|_| Url::parse(base_url).and_then(|base| base.join(value)).map(|url| url.to_string()))
         .ok()
 }
 
@@ -1671,10 +1660,7 @@ async fn download_feed_icon(
         .map_err(|error| format!("failed to download feed icon: {error}"))?;
 
     if !response.status().is_success() {
-        return Err(format!(
-            "failed to download feed icon: {}",
-            response.status()
-        ));
+        return Err(format!("failed to download feed icon: {}", response.status()));
     }
 
     let content_type = response
@@ -1712,8 +1698,7 @@ fn remove_existing_feed_icon_files(icon_dir: &PathBuf, feed_id: &str) -> Result<
         .map_err(|error| format!("failed to read icon directory: {error}"))?;
 
     for entry in entries {
-        let entry =
-            entry.map_err(|error| format!("failed to read icon directory entry: {error}"))?;
+        let entry = entry.map_err(|error| format!("failed to read icon directory entry: {error}"))?;
         let path = entry.path();
         let Some(file_stem) = path.file_stem().and_then(|value| value.to_str()) else {
             continue;
@@ -1794,8 +1779,8 @@ fn update_feed_metadata(
     icon_url: Option<String>,
     should_update_icon: bool,
 ) -> Result<(), String> {
-    let connection =
-        Connection::open(db_path).map_err(|error| format!("failed to open database: {error}"))?;
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
     let now = Utc::now().to_rfc3339();
 
     connection
@@ -1814,14 +1799,7 @@ fn update_feed_metadata(
                 updated_at = ?5
             WHERE id = ?6
             "#,
-            params![
-                title,
-                site_url,
-                i64::from(should_update_icon),
-                icon_url,
-                now,
-                feed_id
-            ],
+            params![title, site_url, i64::from(should_update_icon), icon_url, now, feed_id],
         )
         .map_err(|error| format!("failed to update feed metadata: {error}"))?;
 
