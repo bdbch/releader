@@ -18,7 +18,7 @@ export function Switch({
       <SwitchPrimitive.Thumb
         className={cn(
           "pointer-events-none block size-4 rounded-full border border-border-subtle bg-surface shadow-none transition-transform",
-          "data-[state=checked]:translate-x-4.5 data-[state=checked]:border-transparent data-[state=checked]:bg-accent-foreground",
+          "data-[state=checked]:translate-x-4 data-[state=checked]:border-transparent data-[state=checked]:bg-accent-foreground",
         )}
       />
     </SwitchPrimitive.Root>
