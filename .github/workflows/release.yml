@@ -120,11 +120,11 @@ jobs:
 
       - name: Build Tauri bundle
         if: ${{ !matrix.target }}
-        run: pnpm tauri build -- --config src-tauri/tauri.release.conf.json
+        run: pnpm tauri build -c src-tauri/tauri.release.conf.json --ci
 
       - name: Build Tauri bundle for target
         if: matrix.target
-        run: pnpm tauri build -- --config src-tauri/tauri.release.conf.json --target ${{ matrix.target }}
+        run: pnpm tauri build -c src-tauri/tauri.release.conf.json --target ${{ matrix.target }} --ci
 
       - name: Archive bundled artifacts
         shell: pwsh
