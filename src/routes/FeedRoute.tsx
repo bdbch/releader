@@ -276,13 +276,38 @@ function formatPublishedAt(value: string | null) {
     return "-";
   }
 
+  const now = new Date();
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return "-";
+  }
+
+  if (isSameCalendarDay(date, now)) {
+    const diffMs = date.getTime() - now.getTime();
+    const diffMinutes = Math.round(diffMs / (1000 * 60));
+
+    if (Math.abs(diffMinutes) < 60) {
+      return new Intl.RelativeTimeFormat(undefined, {
+        numeric: "auto",
+      }).format(diffMinutes, "minute");
+    }
+
+    const diffHours = Math.round(diffMinutes / 60);
+    return new Intl.RelativeTimeFormat(undefined, {
+      numeric: "auto",
+    }).format(diffHours, "hour");
   }
 
   return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
   });
+}
+
+function isSameCalendarDay(left: Date, right: Date) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
 }
