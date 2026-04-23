@@ -1,10 +1,13 @@
 import "@fontsource/inter/latin.css";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import "./App.css";
 import { AppRoutes } from "./components/AppRoutes";
 import { Sidebar } from "./components/Sidebar";
+import { platform } from '@tauri-apps/plugin-os'
 
 function App() {
+  const currentPlatform = useMemo(() => platform(), [])
+
   useEffect(() => {
     function handleContextMenu(event: MouseEvent) {
       event.preventDefault();
@@ -20,7 +23,7 @@ function App() {
   return (
     <div className="grid h-full w-full grid-cols-[280px_1fr] bg-background text-foreground">
       <div className="flex flex-col justify-start select-none border-r bg-background">
-        <div className="h-titlebar w-full select-none" data-tauri-drag-region />
+        {currentPlatform === 'macos' && <div className="h-titlebar w-full select-none" data-tauri-drag-region />}
         <div className="flex-1 px-4 py-3" data-tauri-drag-region>
           <Sidebar />
         </div>
