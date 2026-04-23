@@ -3,6 +3,8 @@ import { create } from "zustand";
 export enum ROUTE {
   DASHBOARD = "DASHBOARD",
   UNREAD = "UNREAD",
+  FOLDER = "FOLDER",
+  FEED = "FEED",
 }
 
 export type RouteParams = Record<string, string | number | boolean | null>;
