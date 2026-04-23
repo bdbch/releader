@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import type { DragEndEvent, DragMoveEvent } from "@dnd-kit/core";
 import {
   DndContext,
@@ -46,8 +47,13 @@ export function Sidebar() {
     (state) => state.setSidebarStructure,
   );
   const createRootFolder = useSidebarStore((state) => state.createRootFolder);
+  const createDraftFeed = useSidebarStore((state) => state.createDraftFeed);
+  const initializeFeed = useSidebarStore((state) => state.initializeFeed);
+  const renameFeed = useSidebarStore((state) => state.renameFeed);
   const renameFolder = useSidebarStore((state) => state.renameFolder);
   const removeFolder = useSidebarStore((state) => state.removeFolder);
+  const removeFeed = useSidebarStore((state) => state.removeFeed);
+  const reloadSidebarData = useSidebarStore((state) => state.reloadSidebarData);
   const persistSidebarStructure = useSidebarStore(
     (state) => state.persistSidebarStructure,
   );
@@ -55,6 +61,8 @@ export function Sidebar() {
     null,
   );
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [creatingFeedId, setCreatingFeedId] = useState<string | null>(null);
+  const [editingFeedId, setEditingFeedId] = useState<string | null>(null);
   const [pendingDeleteFolderId, setPendingDeleteFolderId] = useState<string | null>(
     null,
   );
@@ -62,6 +70,16 @@ export function Sidebar() {
   useEffect(() => {
     void loadSidebarData();
   }, [loadSidebarData]);
+
+  useEffect(() => {
+    const unlistenPromise = listen("feed-sync-updated", () => {
+      void reloadSidebarData();
+    });
+
+    return () => {
+      void unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, [reloadSidebarData]);
 
   const tree = buildSidebarTree(folders, feeds);
   const sensors = useSensors(
@@ -138,6 +156,11 @@ export function Sidebar() {
     setEditingFolderId(folder.id);
   }
 
+  async function handleCreateFeed() {
+    const feed = await createDraftFeed();
+    setCreatingFeedId(feed.id);
+  }
+
   async function handleCommitFolderRename(folderId: string, name: string) {
     try {
       await renameFolder(folderId, name);
@@ -173,6 +196,52 @@ export function Sidebar() {
     ) {
       setCurrentRoute(ROUTE.DASHBOARD);
     }
+  }
+
+  async function handleCommitFeedRename(feedId: string, title: string) {
+    try {
+      await renameFeed(feedId, title);
+      setEditingFeedId(null);
+    } catch {
+      setEditingFeedId(null);
+    }
+  }
+
+  async function handleDeleteFeed(feedId: string) {
+    await removeFeed(feedId);
+    setEditingFeedId(null);
+
+    if (currentRoute === ROUTE.FEED && routeParams.feedId === feedId) {
+      setCurrentRoute(ROUTE.DASHBOARD);
+    }
+  }
+
+  async function handleSubmitFeedUrl(feedId: string, value: string) {
+    const trimmedValue = value.trim();
+
+    try {
+      new URL(trimmedValue);
+    } catch {
+      setCreatingFeedId(null);
+      await removeFeed(feedId);
+      return;
+    }
+
+    setCreatingFeedId(null);
+    setCurrentRoute(ROUTE.FEED, { feedId });
+
+    try {
+      await initializeFeed(feedId, trimmedValue);
+      await reloadSidebarData();
+    } catch {
+      await removeFeed(feedId);
+      setCurrentRoute(ROUTE.DASHBOARD);
+    }
+  }
+
+  async function handleCancelCreateFeed(feedId: string) {
+    setCreatingFeedId(null);
+    await removeFeed(feedId);
   }
 
   const pendingDeleteFolder = pendingDeleteFolderId
@@ -218,7 +287,7 @@ export function Sidebar() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onSelect={() => setCurrentRoute(ROUTE.NEW_FEED)}
+                onSelect={() => void handleCreateFeed()}
               >
                 Feed
               </DropdownMenuItem>
@@ -254,6 +323,7 @@ export function Sidebar() {
               depth={0}
               currentRoute={currentRoute}
               routeParams={routeParams}
+              feeds={feeds}
               expandedFolderIds={expandedFolderIds}
               activeDropFolderId={activeDropFolderId}
               toggleFolderTree={toggleFolderTree}
@@ -263,10 +333,18 @@ export function Sidebar() {
               }
               onSelectFeed={(feedId) => setCurrentRoute(ROUTE.FEED, { feedId })}
               editingFolderId={editingFolderId}
+              creatingFeedId={creatingFeedId}
+              editingFeedId={editingFeedId}
               onCommitFolderRename={handleCommitFolderRename}
+              onCommitFeedRename={handleCommitFeedRename}
               onCancelFolderRename={() => setEditingFolderId(null)}
+              onCancelFeedRename={() => setEditingFeedId(null)}
               onStartFolderRename={(folderId) => setEditingFolderId(folderId)}
+              onStartFeedRename={(feedId) => setEditingFeedId(feedId)}
               onRequestDeleteFolder={(folderId) => setPendingDeleteFolderId(folderId)}
+              onDeleteFeed={handleDeleteFeed}
+              onSubmitFeedUrl={handleSubmitFeedUrl}
+              onCancelCreateFeed={handleCancelCreateFeed}
             />
           </SortableContext>
         </DndContext>
@@ -312,6 +390,7 @@ function SidebarTreeContext({
   depth,
   currentRoute,
   routeParams,
+  feeds,
   expandedFolderIds,
   activeDropFolderId,
   toggleFolderTree,
@@ -319,16 +398,25 @@ function SidebarTreeContext({
   onSelectFolder,
   onSelectFeed,
   editingFolderId,
+  creatingFeedId,
+  editingFeedId,
   onCommitFolderRename,
+  onCommitFeedRename,
   onCancelFolderRename,
+  onCancelFeedRename,
   onStartFolderRename,
+  onStartFeedRename,
   onRequestDeleteFolder,
+  onDeleteFeed,
+  onSubmitFeedUrl,
+  onCancelCreateFeed,
 }: {
   nodes: SidebarNode[];
   contextId: string | null;
   depth: number;
   currentRoute: ROUTE;
   routeParams: Record<string, string | number | boolean | null>;
+  feeds: Array<{ id: string; iconUrl: string | null }>;
   expandedFolderIds: Record<string, boolean>;
   activeDropFolderId: string | null;
   toggleFolderTree: (folderId: string) => void;
@@ -336,13 +424,21 @@ function SidebarTreeContext({
   onSelectFolder: (folderId: string) => void;
   onSelectFeed: (feedId: string) => void;
   editingFolderId: string | null;
+  creatingFeedId: string | null;
+  editingFeedId: string | null;
   onCommitFolderRename: (
     folderId: string,
     name: string,
   ) => void | Promise<void>;
+  onCommitFeedRename: (feedId: string, title: string) => void | Promise<void>;
   onCancelFolderRename: () => void;
+  onCancelFeedRename: () => void;
   onStartFolderRename: (folderId: string) => void;
+  onStartFeedRename: (feedId: string) => void;
   onRequestDeleteFolder: (folderId: string) => void;
+  onDeleteFeed: (feedId: string) => void | Promise<void>;
+  onSubmitFeedUrl: (feedId: string, value: string) => void | Promise<void>;
+  onCancelCreateFeed: (feedId: string) => void | Promise<void>;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -361,9 +457,22 @@ function SidebarTreeContext({
               <SidebarFeedItem
                 id={node.id}
                 label={node.title}
+                iconUrl={feeds.find((feed) => feed.id === node.id)?.iconUrl ?? null}
                 depth={depth}
                 isActive={isActive}
-                onClick={() => onSelectFeed(node.id)}
+                isEditing={editingFeedId === node.id}
+                isCreating={creatingFeedId === node.id}
+                onClick={() => {
+                  if (creatingFeedId !== node.id && editingFeedId !== node.id) {
+                    onSelectFeed(node.id);
+                  }
+                }}
+                onCommitRename={(value) => onCommitFeedRename(node.id, value)}
+                onCancelRename={onCancelFeedRename}
+                onContextMenuRename={() => onStartFeedRename(node.id)}
+                onContextMenuDelete={() => void onDeleteFeed(node.id)}
+                onSubmitUrl={(value) => onSubmitFeedUrl(node.id, value)}
+                onCancelCreate={() => onCancelCreateFeed(node.id)}
               />
               <SidebarDropZone
                 id={buildContextDropZoneId(contextId, index + 1)}
@@ -414,6 +523,7 @@ function SidebarTreeContext({
                 depth={depth + 1}
                 currentRoute={currentRoute}
                 routeParams={routeParams}
+                feeds={feeds}
                 expandedFolderIds={expandedFolderIds}
                 activeDropFolderId={activeDropFolderId}
                 toggleFolderTree={toggleFolderTree}
@@ -421,10 +531,18 @@ function SidebarTreeContext({
                 onSelectFolder={onSelectFolder}
                 onSelectFeed={onSelectFeed}
                 editingFolderId={editingFolderId}
+                creatingFeedId={creatingFeedId}
+                editingFeedId={editingFeedId}
                 onCommitFolderRename={onCommitFolderRename}
+                onCommitFeedRename={onCommitFeedRename}
                 onCancelFolderRename={onCancelFolderRename}
+                onCancelFeedRename={onCancelFeedRename}
                 onStartFolderRename={onStartFolderRename}
+                onStartFeedRename={onStartFeedRename}
                 onRequestDeleteFolder={onRequestDeleteFolder}
+                onDeleteFeed={onDeleteFeed}
+                onSubmitFeedUrl={onSubmitFeedUrl}
+                onCancelCreateFeed={onCancelCreateFeed}
               />
             ) : null}
 

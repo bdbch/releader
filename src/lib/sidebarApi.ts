@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { FolderRecord, SidebarData } from "@/types/sidebar";
+import type { FeedRecord } from "@/types/sidebar";
 
 export async function getSidebarData() {
   return invoke<SidebarData>("get_sidebar_data");
@@ -25,6 +26,18 @@ export async function saveSidebarStructure({
 
 export async function createFolder() {
   return invoke<{ folder: FolderRecord }>("create_folder");
+}
+
+export async function createFeedDraft() {
+  return invoke<{ feed: FeedRecord }>("create_feed_draft");
+}
+
+export async function initializeFeedFromUrl(feedId: string, url: string) {
+  return invoke<FeedRecord>("initialize_feed_from_url", { feedId, url });
+}
+
+export async function renameFeed(feedId: string, title: string) {
+  return invoke<FeedRecord>("rename_feed", { feedId, title });
 }
 
 export async function renameFolder(folderId: string, name: string) {

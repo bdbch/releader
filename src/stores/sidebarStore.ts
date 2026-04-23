@@ -1,9 +1,12 @@
 import { create } from "zustand";
 import {
   createFolder,
+  createFeedDraft,
   deleteFolder,
   deleteFeed,
   getSidebarData,
+  initializeFeedFromUrl,
+  renameFeed,
   renameFolder,
   resetSeededData,
   saveSidebarStructure,
@@ -27,7 +30,11 @@ type SidebarState = {
   toggleFolderTree: (folderId: string) => void;
   setSidebarStructure: (folders: FolderRecord[], feeds: FeedRecord[]) => void;
   persistSidebarStructure: () => Promise<void>;
+  reloadSidebarData: () => Promise<void>;
   createRootFolder: () => Promise<FolderRecord>;
+  createDraftFeed: () => Promise<FeedRecord>;
+  initializeFeed: (feedId: string, url: string) => Promise<FeedRecord>;
+  renameFeed: (feedId: string, title: string) => Promise<FeedRecord>;
   renameFolder: (folderId: string, name: string) => Promise<FolderRecord>;
   removeFolder: (folderId: string) => Promise<void>;
   removeFeed: (feedId: string) => Promise<void>;
@@ -108,6 +115,10 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
     const { folders, feeds } = get();
     await saveSidebarStructure(serializeSidebarStructure(folders, feeds));
   },
+  reloadSidebarData: async () => {
+    set({ hasLoaded: false });
+    await get().loadSidebarData();
+  },
   createRootFolder: async () => {
     const result = await createFolder();
 
@@ -120,6 +131,33 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
     }));
 
     return result.folder;
+  },
+  createDraftFeed: async () => {
+    const result = await createFeedDraft();
+
+    set((state) => ({
+      feeds: [...state.feeds, result.feed].sort((a, b) => a.sortOrder - b.sortOrder),
+    }));
+
+    return result.feed;
+  },
+  initializeFeed: async (feedId, url) => {
+    const feed = await initializeFeedFromUrl(feedId, url);
+
+    set((state) => ({
+      feeds: state.feeds.map((item) => (item.id === feed.id ? feed : item)),
+    }));
+
+    return feed;
+  },
+  renameFeed: async (feedId, title) => {
+    const feed = await renameFeed(feedId, title);
+
+    set((state) => ({
+      feeds: state.feeds.map((item) => (item.id === feed.id ? feed : item)),
+    }));
+
+    return feed;
   },
   renameFolder: async (folderId, name) => {
     const folder = await renameFolder(folderId, name);
@@ -134,13 +172,11 @@ export const useSidebarStore = create<SidebarState>((set, get) => ({
   },
   removeFolder: async (folderId) => {
     await deleteFolder(folderId);
-    set({ hasLoaded: false });
-    await get().loadSidebarData();
+    await get().reloadSidebarData();
   },
   removeFeed: async (feedId) => {
     await deleteFeed(feedId);
-    set({ hasLoaded: false });
-    await get().loadSidebarData();
+    await get().reloadSidebarData();
   },
   resetToSeededData: async () => {
     const result = await resetSeededData();

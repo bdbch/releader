@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { RefreshCwIcon } from "lucide-react";
+import { RefreshCwIcon, RssIcon } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { ArticleList, type ArticleListItem } from "@/components/ArticleList";
 import { Button } from "@/components/ui/Button";
@@ -103,6 +103,13 @@ export function FeedRoute() {
   return (
     <RouteLayout
       title={feed?.title ?? "Feed"}
+      titleIcon={
+        feed?.iconUrl ? (
+          <img src={feed.iconUrl} alt="" className="size-4 rounded-sm object-contain" />
+        ) : (
+          <RssIcon className="size-4 text-content-subtle" />
+        )
+      }
       actions={
         <div className="flex items-center gap-2">
           <IconButton

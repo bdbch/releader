@@ -1,7 +1,8 @@
+use base64::Engine;
 use chrono::{DateTime, Utc};
 use feed_rs::model::{Entry, Feed};
-use reqwest::header::{ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
-use reqwest::Client;
+use reqwest::header::{CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
+use reqwest::{Client, Url};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -151,6 +152,12 @@ pub struct ResetSeededDataResult {
 #[serde(rename_all = "camelCase")]
 pub struct CreateFolderResult {
     pub folder: FolderRecord,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateFeedDraftResult {
+    pub feed: FeedRecord,
 }
 
 #[derive(Debug, Clone)]
@@ -345,22 +352,7 @@ pub fn get_sidebar_data(db_path: &PathBuf) -> Result<SidebarData, String> {
         .map_err(|error| format!("failed to prepare feed query: {error}"))?;
 
     let feeds = feed_statement
-        .query_map([], |row| {
-            Ok(FeedRecord {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                url: row.get(2)?,
-                site_url: row.get(3)?,
-                folder_id: row.get(4)?,
-                sort_order: row.get(5)?,
-                icon_url: row.get(6)?,
-                last_fetched_at: row.get(7)?,
-                last_fetch_status: row.get(8)?,
-                last_fetch_error: row.get(9)?,
-                created_at: row.get(10)?,
-                updated_at: row.get(11)?,
-            })
-        })
+        .query_map([], map_feed_row)
         .map_err(|error| format!("failed to query feeds: {error}"))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| format!("failed to read feeds: {error}"))?;
@@ -588,6 +580,125 @@ pub fn create_folder(db_path: &PathBuf) -> Result<CreateFolderResult, String> {
             updated_at: now,
         },
     })
+}
+
+pub fn create_feed_draft(db_path: &PathBuf) -> Result<CreateFeedDraftResult, String> {
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let now = Utc::now().to_rfc3339();
+    let feed_id = format!("feed-{}", Uuid::new_v4());
+    let draft_url = format!("draft://{feed_id}");
+    let sort_order = connection
+        .query_row(
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM feeds WHERE folder_id IS NULL",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| format!("failed to determine feed sort order: {error}"))?;
+
+    connection
+        .execute(
+            r#"
+            INSERT INTO feeds (
+                id,
+                title,
+                url,
+                site_url,
+                folder_id,
+                sort_order,
+                icon_url,
+                last_fetched_at,
+                etag,
+                last_modified,
+                last_fetch_status,
+                last_fetch_error,
+                created_at,
+                updated_at
+            ) VALUES (?1, '', ?2, NULL, NULL, ?3, NULL, NULL, NULL, NULL, 'draft', NULL, ?4, ?5)
+            "#,
+            params![feed_id, draft_url, sort_order, now, now],
+        )
+        .map_err(|error| format!("failed to create feed draft: {error}"))?;
+
+    Ok(CreateFeedDraftResult {
+        feed: load_feed_record_by_id(&connection, &feed_id)?
+            .ok_or_else(|| format!("failed to load created feed draft: {feed_id}"))?,
+    })
+}
+
+pub fn rename_feed(db_path: &PathBuf, feed_id: &str, title: &str) -> Result<FeedRecord, String> {
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let trimmed_title = title.trim();
+
+    if trimmed_title.is_empty() {
+        return Err("feed title cannot be empty".to_string());
+    }
+
+    let now = Utc::now().to_rfc3339();
+    let updated_rows = connection
+        .execute(
+            r#"
+            UPDATE feeds
+            SET title = ?1,
+                updated_at = ?2
+            WHERE id = ?3
+            "#,
+            params![trimmed_title, now, feed_id],
+        )
+        .map_err(|error| format!("failed to rename feed: {error}"))?;
+
+    if updated_rows == 0 {
+        return Err(format!("feed not found: {feed_id}"));
+    }
+
+    load_feed_record_by_id(&connection, feed_id)?
+        .ok_or_else(|| format!("feed not found: {feed_id}"))
+}
+
+pub async fn initialize_feed_from_url(
+    db_path: &PathBuf,
+    sync_state: Arc<FeedSyncState>,
+    feed_id: &str,
+    url: &str,
+) -> Result<FeedRecord, String> {
+    let normalized_url = Url::parse(url)
+        .map_err(|error| format!("invalid feed url: {error}"))?
+        .to_string();
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let now = Utc::now().to_rfc3339();
+    let updated_rows = connection
+        .execute(
+            r#"
+            UPDATE feeds
+            SET url = ?1,
+                site_url = NULL,
+                icon_url = NULL,
+                etag = NULL,
+                last_modified = NULL,
+                last_fetched_at = NULL,
+                last_fetch_status = NULL,
+                last_fetch_error = NULL,
+                updated_at = ?2
+            WHERE id = ?3
+            "#,
+            params![normalized_url, now, feed_id],
+        )
+        .map_err(|error| format!("failed to initialize feed: {error}"))?;
+
+    if updated_rows == 0 {
+        return Err(format!("feed not found: {feed_id}"));
+    }
+
+    let target = load_feed_fetch_target(db_path, feed_id)?
+        .ok_or_else(|| format!("feed not found: {feed_id}"))?;
+    let _ = fetch_and_store_feed(db_path, sync_state, target).await;
+
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to reopen database: {error}"))?;
+    load_feed_record_by_id(&connection, feed_id)?
+        .ok_or_else(|| format!("feed not found: {feed_id}"))
 }
 
 pub fn rename_folder(db_path: &PathBuf, folder_id: &str, name: &str) -> Result<FolderRecord, String> {
@@ -842,6 +953,7 @@ async fn fetch_and_store_feed_inner(
 
     let parsed_articles = parse_feed_entries(&feed);
     let (inserted_count, updated_count) = upsert_articles(db_path, &target.id, parsed_articles)?;
+    sync_feed_metadata(db_path, &target.id, target, &feed, &client).await?;
 
     mark_feed_fetch_success(db_path, &target.id, next_etag, next_last_modified)?;
 
@@ -961,6 +1073,38 @@ fn map_article_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ArticleRecord> {
     })
 }
 
+fn map_feed_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<FeedRecord> {
+    Ok(FeedRecord {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        url: row.get(2)?,
+        site_url: row.get(3)?,
+        folder_id: row.get(4)?,
+        sort_order: row.get(5)?,
+        icon_url: row.get(6)?,
+        last_fetched_at: row.get(7)?,
+        last_fetch_status: row.get(8)?,
+        last_fetch_error: row.get(9)?,
+        created_at: row.get(10)?,
+        updated_at: row.get(11)?,
+    })
+}
+
+fn load_feed_record_by_id(connection: &Connection, feed_id: &str) -> Result<Option<FeedRecord>, String> {
+    connection
+        .query_row(
+            r#"
+            SELECT id, title, url, site_url, folder_id, sort_order, icon_url, last_fetched_at, last_fetch_status, last_fetch_error, created_at, updated_at
+            FROM feeds
+            WHERE id = ?1
+            "#,
+            params![feed_id],
+            map_feed_row,
+        )
+        .optional()
+        .map_err(|error| format!("failed to load feed record: {error}"))
+}
+
 fn load_due_feed_targets(db_path: &PathBuf) -> Result<Vec<FeedFetchTarget>, String> {
     let connection = Connection::open(db_path)
         .map_err(|error| format!("failed to open database: {error}"))?;
@@ -971,6 +1115,7 @@ fn load_due_feed_targets(db_path: &PathBuf) -> Result<Vec<FeedFetchTarget>, Stri
             r#"
             SELECT id, title, url, etag, last_modified, last_fetched_at
             FROM feeds
+            WHERE url NOT LIKE 'draft://%'
             ORDER BY COALESCE(last_fetched_at, ''), title
             "#,
         )
@@ -1354,6 +1499,225 @@ fn mark_feed_fetch_error(
             params![status, error_message, now, feed_id],
         )
         .map_err(|error| format!("failed to update feed fetch error metadata: {error}"))?;
+
+    Ok(())
+}
+
+async fn sync_feed_metadata(
+    db_path: &PathBuf,
+    feed_id: &str,
+    target: &FeedFetchTarget,
+    feed: &Feed,
+    client: &Client,
+) -> Result<(), String> {
+    let next_title = feed
+        .title
+        .as_ref()
+        .map(|value| value.content.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let next_site_url = extract_feed_site_url(feed, &target.url);
+    let icon_source_url = extract_feed_icon_source_url(feed, &target.url);
+    let (next_icon_url, should_update_icon) = match icon_source_url {
+        Some(icon_url) => match download_feed_icon(db_path, feed_id, client, &icon_url).await {
+            Ok(local_icon_path) => (Some(local_icon_path), true),
+            Err(_) => (None, false),
+        },
+        None => (None, true),
+    };
+
+    update_feed_metadata(
+        db_path,
+        feed_id,
+        next_title,
+        next_site_url,
+        next_icon_url,
+        should_update_icon,
+    )
+}
+
+fn extract_feed_site_url(feed: &Feed, fallback_feed_url: &str) -> Option<String> {
+    feed.links
+        .iter()
+        .find(|link| link.rel.as_deref() != Some("self"))
+        .map(|link| link.href.clone())
+        .or_else(|| {
+            Url::parse(fallback_feed_url).ok().and_then(|url| {
+                url.host_str()
+                    .map(|host| format!("{}://{}", url.scheme(), host))
+            })
+        })
+}
+
+fn extract_feed_icon_source_url(feed: &Feed, fallback_feed_url: &str) -> Option<String> {
+    feed.icon
+        .as_ref()
+        .map(|image| image.uri.clone())
+        .or_else(|| feed.logo.as_ref().map(|image| image.uri.clone()))
+        .and_then(|value| resolve_url(fallback_feed_url, &value))
+}
+
+fn resolve_url(base_url: &str, value: &str) -> Option<String> {
+    Url::parse(value)
+        .map(|url| url.to_string())
+        .or_else(|_| Url::parse(base_url).and_then(|base| base.join(value)).map(|url| url.to_string()))
+        .ok()
+}
+
+async fn download_feed_icon(
+    db_path: &PathBuf,
+    feed_id: &str,
+    client: &Client,
+    icon_url: &str,
+) -> Result<String, String> {
+    let response = client
+        .get(icon_url)
+        .send()
+        .await
+        .map_err(|error| format!("failed to download feed icon: {error}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!("failed to download feed icon: {}", response.status()));
+    }
+
+    let content_type = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("failed to read feed icon bytes: {error}"))?;
+    let icon_dir = db_path
+        .parent()
+        .ok_or_else(|| "failed to resolve icon directory".to_string())?
+        .join("feed-icons");
+
+    fs::create_dir_all(&icon_dir)
+        .map_err(|error| format!("failed to create icon directory: {error}"))?;
+
+    remove_existing_feed_icon_files(&icon_dir, feed_id)?;
+
+    let extension = infer_icon_extension(icon_url, content_type.as_deref());
+    let mime_type = infer_icon_mime_type(icon_url, content_type.as_deref());
+    let icon_path = icon_dir.join(format!("{feed_id}.{extension}"));
+
+    fs::write(&icon_path, &bytes)
+        .map_err(|error| format!("failed to write feed icon file: {error}"))?;
+
+    let encoded_bytes = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{mime_type};base64,{encoded_bytes}"))
+}
+
+fn remove_existing_feed_icon_files(icon_dir: &PathBuf, feed_id: &str) -> Result<(), String> {
+    let entries = fs::read_dir(icon_dir)
+        .map_err(|error| format!("failed to read icon directory: {error}"))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("failed to read icon directory entry: {error}"))?;
+        let path = entry.path();
+        let Some(file_stem) = path.file_stem().and_then(|value| value.to_str()) else {
+            continue;
+        };
+
+        if file_stem == feed_id {
+            fs::remove_file(path)
+                .map_err(|error| format!("failed to remove previous feed icon file: {error}"))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn infer_icon_extension(icon_url: &str, content_type: Option<&str>) -> &'static str {
+    match content_type {
+        Some(value) if value.starts_with("image/png") => "png",
+        Some(value) if value.starts_with("image/jpeg") => "jpg",
+        Some(value) if value.starts_with("image/webp") => "webp",
+        Some(value) if value.starts_with("image/gif") => "gif",
+        Some(value) if value.starts_with("image/avif") => "avif",
+        Some(value) if value.starts_with("image/svg") => "svg",
+        _ => {
+            let lowercase_url = icon_url.to_ascii_lowercase();
+            if lowercase_url.contains(".png") {
+                "png"
+            } else if lowercase_url.contains(".jpg") || lowercase_url.contains(".jpeg") {
+                "jpg"
+            } else if lowercase_url.contains(".webp") {
+                "webp"
+            } else if lowercase_url.contains(".gif") {
+                "gif"
+            } else if lowercase_url.contains(".avif") {
+                "avif"
+            } else if lowercase_url.contains(".svg") {
+                "svg"
+            } else {
+                "png"
+            }
+        }
+    }
+}
+
+fn infer_icon_mime_type(icon_url: &str, content_type: Option<&str>) -> &'static str {
+    match content_type {
+        Some(value) if value.starts_with("image/png") => "image/png",
+        Some(value) if value.starts_with("image/jpeg") => "image/jpeg",
+        Some(value) if value.starts_with("image/webp") => "image/webp",
+        Some(value) if value.starts_with("image/gif") => "image/gif",
+        Some(value) if value.starts_with("image/avif") => "image/avif",
+        Some(value) if value.starts_with("image/svg") => "image/svg+xml",
+        _ => {
+            let lowercase_url = icon_url.to_ascii_lowercase();
+            if lowercase_url.contains(".png") {
+                "image/png"
+            } else if lowercase_url.contains(".jpg") || lowercase_url.contains(".jpeg") {
+                "image/jpeg"
+            } else if lowercase_url.contains(".webp") {
+                "image/webp"
+            } else if lowercase_url.contains(".gif") {
+                "image/gif"
+            } else if lowercase_url.contains(".avif") {
+                "image/avif"
+            } else if lowercase_url.contains(".svg") {
+                "image/svg+xml"
+            } else {
+                "image/png"
+            }
+        }
+    }
+}
+
+fn update_feed_metadata(
+    db_path: &PathBuf,
+    feed_id: &str,
+    title: Option<String>,
+    site_url: Option<String>,
+    icon_url: Option<String>,
+    should_update_icon: bool,
+) -> Result<(), String> {
+    let connection = Connection::open(db_path)
+        .map_err(|error| format!("failed to open database: {error}"))?;
+    let now = Utc::now().to_rfc3339();
+
+    connection
+        .execute(
+            r#"
+            UPDATE feeds
+            SET title = CASE
+                    WHEN TRIM(COALESCE(title, '')) = '' AND TRIM(COALESCE(?1, '')) <> '' THEN ?1
+                    ELSE title
+                END,
+                site_url = COALESCE(?2, site_url),
+                icon_url = CASE
+                    WHEN ?3 = 1 THEN ?4
+                    ELSE icon_url
+                END,
+                updated_at = ?5
+            WHERE id = ?6
+            "#,
+            params![title, site_url, i64::from(should_update_icon), icon_url, now, feed_id],
+        )
+        .map_err(|error| format!("failed to update feed metadata: {error}"))?;
 
     Ok(())
 }
